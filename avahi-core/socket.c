@@ -1,4 +1,4 @@
-/* $Id$ */
+/* $Id: socket.c 1591 2007-12-16 21:03:02Z lennart $ */
 
 /***
   This file is part of avahi.
@@ -66,22 +66,22 @@
 #endif
 #endif
 
-static void mdns_mcast_group_ipv4(struct sockaddr_in *ret_sa) {
+static void mcast_group_ipv4(struct sockaddr_in *ret_sa, AvahiPublishProtocol proto) {
     assert(ret_sa);
 
     memset(ret_sa, 0, sizeof(struct sockaddr_in));
     ret_sa->sin_family = AF_INET;
-    ret_sa->sin_port = htons(AVAHI_MDNS_PORT);
-    inet_pton(AF_INET, AVAHI_IPV4_MCAST_GROUP, &ret_sa->sin_addr);
+    ret_sa->sin_port = htons(proto == AVAHI_LLMNR ? AVAHI_LLMNR_PORT : AVAHI_MDNS_PORT );
+    inet_pton(AF_INET, proto == AVAHI_LLMNR ? AVAHI_IPV4_LLMNR_GROUP : AVAHI_IPV4_MCAST_GROUP, &ret_sa->sin_addr);
 }
 
-static void mdns_mcast_group_ipv6(struct sockaddr_in6 *ret_sa) {
+static void mcast_group_ipv6(struct sockaddr_in6 *ret_sa, AvahiPublishProtocol proto) {
     assert(ret_sa);
 
     memset(ret_sa, 0, sizeof(struct sockaddr_in6));
     ret_sa->sin6_family = AF_INET6;
-    ret_sa->sin6_port = htons(AVAHI_MDNS_PORT);
-    inet_pton(AF_INET6, AVAHI_IPV6_MCAST_GROUP, &ret_sa->sin6_addr);
+    ret_sa->sin6_port = htons(proto == AVAHI_LLMNR ? AVAHI_LLMNR_PORT : AVAHI_MDNS_PORT );
+    inet_pton(AF_INET6, proto == AVAHI_LLMNR ? AVAHI_IPV6_LLMNR_GROUP : AVAHI_IPV6_MCAST_GROUP , &ret_sa->sin6_addr);
 }
 
 static void ipv4_address_to_sockaddr(struct sockaddr_in *ret_sa, const AvahiIPv4Address *a, uint16_t port) {
@@ -106,7 +106,7 @@ static void ipv6_address_to_sockaddr(struct sockaddr_in6 *ret_sa, const AvahiIPv
     memcpy(&ret_sa->sin6_addr, a, sizeof(AvahiIPv6Address));
 }
 
-int avahi_mdns_mcast_join_ipv4(int fd, const AvahiIPv4Address *a, int idx, int join) {
+int avahi_mcast_join_ipv4(int fd, const AvahiIPv4Address *a, int idx, int join, AvahiPublishProtocol proto) {
 #ifdef HAVE_STRUCT_IP_MREQN
     struct ip_mreqn mreq;
 #else
@@ -120,12 +120,20 @@ int avahi_mdns_mcast_join_ipv4(int fd, const AvahiIPv4Address *a, int idx, int j
 
     memset(&mreq, 0, sizeof(mreq));
 #ifdef HAVE_STRUCT_IP_MREQN
+/*
+	imr_ifindex and imr_address will remain same 
+	for both of the multicsat groups.
+*/
     mreq.imr_ifindex = idx;
     mreq.imr_address.s_addr = a->address;
 #else
     mreq.imr_interface.s_addr = a->address;
 #endif
-    mdns_mcast_group_ipv4(&sa);
+/*
+	send proto for 'sa' to joing appropiate 
+	multicast group.
+*/
+    mcast_group_ipv4(&sa, proto);
     mreq.imr_multiaddr = sa.sin_addr;
 
     /* Some network drivers have issues with dropping membership of
@@ -142,7 +150,7 @@ int avahi_mdns_mcast_join_ipv4(int fd, const AvahiIPv4Address *a, int idx, int j
     return 0;
 }
 
-int avahi_mdns_mcast_join_ipv6(int fd, const AvahiIPv6Address *a, int idx, int join) {
+int avahi_mcast_join_ipv6(int fd, const AvahiIPv6Address *a, int idx, int join, AvahiPublishProtocol proto) {
     struct ipv6_mreq mreq6;
     struct sockaddr_in6 sa6;
 
@@ -151,7 +159,11 @@ int avahi_mdns_mcast_join_ipv6(int fd, const AvahiIPv6Address *a, int idx, int j
     assert(a);
 
     memset(&mreq6, 0, sizeof(mreq6));
-    mdns_mcast_group_ipv6 (&sa6);
+/*
+	send proto for 'sa6' to join appropiate
+	multicast group
+*/
+    mcast_group_ipv6 (&sa6, proto);
     mreq6.ipv6mr_multiaddr = sa6.sin6_addr;
     mreq6.ipv6mr_interface = idx;
 
@@ -199,8 +211,8 @@ static int bind_with_warn(int fd, const struct sockaddr *sa, socklen_t l) {
             return -1;
         }
 
-        avahi_log_warn("*** WARNING: Detected another %s mDNS stack running on this host. This makes mDNS unreliable and is thus not recommended. ***",
-                       sa->sa_family == AF_INET ? "IPv4" : "IPv6");
+        avahi_log_warn("*** WARNING: Detected another %s %s stack running on this host. This makes mDNS unreliable and is thus not recommended. ***",
+                       sa->sa_family == AF_INET ? "IPv4" : "IPv6","mDNS/LLMNR");
 
         /* Try again, this time with SO_REUSEADDR set */
         if (reuseaddr(fd) < 0)
@@ -213,7 +225,7 @@ static int bind_with_warn(int fd, const struct sockaddr *sa, socklen_t l) {
     } else {
 
         /* We enable SO_REUSEADDR afterwards, to make sure that the
-         * user may run other mDNS implementations if he really
+         * user may run other mDNS/LLMNR implementations if he really
          * wants. */
 
         if (reuseaddr(fd) < 0)
@@ -309,7 +321,7 @@ static int ipv6_pktinfo(int fd) {
     return 0;
 }
 
-int avahi_open_socket_ipv4(int no_reuse) {
+int avahi_open_socket_ipv4(int no_reuse,AvahiPublishProtocol proto) {
     struct sockaddr_in local;
     int fd = -1, r, ittl;
     uint8_t ttl, cyes;
@@ -319,7 +331,7 @@ int avahi_open_socket_ipv4(int no_reuse) {
         goto fail;
     }
 
-    ttl = 255;
+	ttl = 255;
     if (setsockopt(fd, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0) {
         avahi_log_warn("IP_MULTICAST_TTL failed: %s", strerror(errno));
         goto fail;
@@ -339,7 +351,14 @@ int avahi_open_socket_ipv4(int no_reuse) {
 
     memset(&local, 0, sizeof(local));
     local.sin_family = AF_INET;
-    local.sin_port = htons(AVAHI_MDNS_PORT);
+/*
+	Here we define only port of local structure because this 
+	socket is used by AvahiServer and is used to join multicast 
+	group. we pick the address further from local interface
+	and joing the group.(ip_mreqn)
+	avahi_mcast_join_ipv4()/6
+*/
+    local.sin_port = htons(proto == AVAHI_LLMNR ? AVAHI_LLMNR_PORT : AVAHI_MDNS_PORT);
 
     if (no_reuse)
         r = bind(fd, (struct sockaddr*) &local, sizeof(local));
@@ -348,7 +367,10 @@ int avahi_open_socket_ipv4(int no_reuse) {
 
     if (r < 0)
         goto fail;
-
+/*
+	Just set socket options on 'fd'. No header
+	is passed.
+*/
     if (ipv4_pktinfo (fd) < 0)
          goto fail;
 
@@ -371,12 +393,12 @@ fail:
     return -1;
 }
 
-int avahi_open_socket_ipv6(int no_reuse) {
+int avahi_open_socket_ipv6(int no_reuse,AvahiPublishProtocol proto) {
     struct sockaddr_in6 sa, local;
     int fd = -1, yes, r;
     int ttl;
 
-    mdns_mcast_group_ipv6(&sa);
+    mcast_group_ipv6(&sa, proto);
 
     if ((fd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
         avahi_log_warn("socket() failed: %s", strerror(errno));
@@ -409,7 +431,7 @@ int avahi_open_socket_ipv6(int no_reuse) {
 
     memset(&local, 0, sizeof(local));
     local.sin6_family = AF_INET6;
-    local.sin6_port = htons(AVAHI_MDNS_PORT);
+    local.sin6_port = htons(proto == AVAHI_LLMNR ? AVAHI_LLMNR_PORT : AVAHI_MDNS_PORT);
 
     if (no_reuse)
         r = bind(fd, (struct sockaddr*) &local, sizeof(local));
@@ -441,13 +463,14 @@ fail:
     return -1;
 }
 
-static int sendmsg_loop(int fd, struct msghdr *msg, int flags) {
+static int sendmsg_loop(int fd, struct msghdr *msg, int flag) {
+
     assert(fd >= 0);
     assert(msg);
 
     for (;;) {
 
-        if (sendmsg(fd, msg, flags) >= 0)
+        if (sendmsg(fd, msg, flag) >= 0)
             break;
 
         if (errno != EAGAIN) {
@@ -472,7 +495,8 @@ int avahi_send_dns_packet_ipv4(
         AvahiDnsPacket *p,
         const AvahiIPv4Address *src_address,
         const AvahiIPv4Address *dst_address,
-        uint16_t dst_port) {
+        uint16_t dst_port,
+		AvahiPublishProtocol proto) {
 
     struct sockaddr_in sa;
     struct msghdr msg;
@@ -490,9 +514,10 @@ int avahi_send_dns_packet_ipv4(
     assert(avahi_dns_packet_check_valid(p) >= 0);
     assert(!dst_address || dst_port > 0);
 
-    if (!dst_address)
-        mdns_mcast_group_ipv4(&sa);
-    else
+    if (!dst_address) {
+		assert(proto != AVAHI_WIDE_AREA);
+        mcast_group_ipv4(&sa, proto);
+	} else 
         ipv4_address_to_sockaddr(&sa, dst_address, dst_port);
 
     memset(&io, 0, sizeof(io));
@@ -566,7 +591,8 @@ int avahi_send_dns_packet_ipv6(
         AvahiDnsPacket *p,
         const AvahiIPv6Address *src_address,
         const AvahiIPv6Address *dst_address,
-        uint16_t dst_port) {
+        uint16_t dst_port,
+	AvahiPublishProtocol proto) {
 
     struct sockaddr_in6 sa;
     struct msghdr msg;
@@ -579,9 +605,10 @@ int avahi_send_dns_packet_ipv6(
     assert(avahi_dns_packet_check_valid(p) >= 0);
     assert(!dst_address || dst_port > 0);
 
-    if (!dst_address)
-        mdns_mcast_group_ipv6(&sa);
-    else
+    if (!dst_address) {
+		assert(proto != AVAHI_WIDE_AREA);
+        mcast_group_ipv6(&sa, proto);
+	} else 
         ipv6_address_to_sockaddr(&sa, dst_address, dst_port);
 
     memset(&io, 0, sizeof(io));
@@ -666,6 +693,7 @@ AvahiDnsPacket *avahi_recv_dns_packet_ipv4(
     msg.msg_controllen = sizeof(aux);
     msg.msg_flags = 0;
 
+
     if ((l = recvmsg(fd, &msg, 0)) < 0) {
         /* Linux returns EAGAIN when an invalid IP packet has been
         received. We suppress warnings in this case because this might
@@ -677,7 +705,7 @@ AvahiDnsPacket *avahi_recv_dns_packet_ipv4(
 
         goto fail;
     }
-
+    
     if (sa.sin_addr.s_addr == INADDR_ANY) {
         /* Linux 2.4 behaves very strangely sometimes! */
         goto fail;

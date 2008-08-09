@@ -49,6 +49,7 @@ struct AvahiSAddressResolver {
     AvahiLookupResultFlags flags;
 
     int retry_with_multicast;
+	int retry_with_llmnr;
     AvahiKey *key;
 
     AvahiTimeEvent *time_event;
@@ -170,6 +171,19 @@ static void record_browser_callback(
                 }
             }
 
+            if (r->retry_with_llmnr) {
+                r->retry_with_llmnr = 0;
+
+                avahi_s_record_browser_free(r->record_browser);
+                r->record_browser = avahi_s_record_browser_new(r->server, r->interface, r->protocol, r->key, AVAHI_LOOKUP_USE_LLMNR, record_browser_callback, r);
+
+                if (r->record_browser) {
+                    start_timeout(r);
+                    break;
+                }
+            }
+
+
             r->flags = flags;
             finish(r, AVAHI_RESOLVER_FAILURE);
             break;
@@ -196,7 +210,7 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
     AVAHI_CHECK_VALIDITY_RETURN_NULL(server, AVAHI_IF_VALID(interface), AVAHI_ERR_INVALID_INTERFACE);
     AVAHI_CHECK_VALIDITY_RETURN_NULL(server, AVAHI_PROTO_VALID(protocol), AVAHI_ERR_INVALID_PROTOCOL);
     AVAHI_CHECK_VALIDITY_RETURN_NULL(server, address->proto == AVAHI_PROTO_INET || address->proto == AVAHI_PROTO_INET6, AVAHI_ERR_INVALID_PROTOCOL);
-    AVAHI_CHECK_VALIDITY_RETURN_NULL(server, AVAHI_FLAGS_VALID(flags, AVAHI_LOOKUP_USE_WIDE_AREA|AVAHI_LOOKUP_USE_MULTICAST), AVAHI_ERR_INVALID_FLAGS);
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(server, AVAHI_FLAGS_VALID(flags, AVAHI_LOOKUP_USE_WIDE_AREA|AVAHI_LOOKUP_USE_MULTICAST|AVAHI_LOOKUP_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
     
     avahi_reverse_lookup_name(address, n, sizeof(n));
 
@@ -220,6 +234,7 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
     r->protocol = protocol;
     r->flags = 0;
     r->retry_with_multicast = 0;
+	r->retry_with_llmnr = 0;
     r->key = k;
 
     r->record_browser = NULL;
@@ -227,14 +242,15 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
 
     r->time_event = NULL;
 
-    if (!(flags & (AVAHI_LOOKUP_USE_MULTICAST|AVAHI_LOOKUP_USE_WIDE_AREA))) {
+    if (!(flags & (AVAHI_LOOKUP_USE_MULTICAST|AVAHI_LOOKUP_USE_WIDE_AREA|AVAHI_LOOKUP_USE_LLMNR))) {
 
-        if (!server->wide_area_lookup_engine || !avahi_wide_area_has_servers(server->wide_area_lookup_engine))
+        if (!server->wide_area.wide_area_lookup_engine || !avahi_wide_area_has_servers(server->wide_area.wide_area_lookup_engine))
             flags |= AVAHI_LOOKUP_USE_MULTICAST;
         else {
             flags |= AVAHI_LOOKUP_USE_WIDE_AREA;
             r->retry_with_multicast = 1;
         }
+		r->retry_with_llmnr = 1;
     }
     
     r->record_browser = avahi_s_record_browser_new(server, interface, protocol, k, flags, record_browser_callback, r);

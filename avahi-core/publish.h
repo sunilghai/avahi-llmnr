@@ -32,6 +32,8 @@
 typedef struct AvahiSEntryGroup AvahiSEntryGroup;
 
 #include <avahi-common/cdecl.h>
+#include <avahi-common/defs.h>
+
 #include <avahi-core/core.h>
 
 AVAHI_C_DECL_BEGIN
@@ -45,7 +47,7 @@ typedef void (*AvahiSEntryGroupCallback) (AvahiServer *s, AvahiSEntryGroup *g, A
  * the current iteration. It is not safe to call any other
  * avahi_server_xxx() function during the iteration. If the last entry
  * has been read, NULL is returned. */
-const AvahiRecord *avahi_server_iterate(AvahiServer *s, AvahiSEntryGroup *g, void **state);
+const AvahiRecord *avahi_server_iterate(AvahiServer *s, AvahiSEntryGroup *g, void **state, AvahiPublishProtocol proto);
 
 /** Create a new entry group. The specified callback function is
  * called whenever the state of the group changes. Use entry group

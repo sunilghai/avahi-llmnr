@@ -36,6 +36,7 @@
 #include <avahi-common/simple-watch.h>
 #include <avahi-common/alternative.h>
 #include <avahi-common/timeval.h>
+#include <avahi-common/error.h>
 
 #include <avahi-core/core.h>
 #include <avahi-core/log.h>
@@ -152,6 +153,7 @@ static void remove_entries(void) {
 static void create_entries(int new_name) {
     AvahiAddress a;
     AvahiRecord *r;
+	int ret = AVAHI_OK;
 
     remove_entries();
 
@@ -168,22 +170,22 @@ static void create_entries(int new_name) {
         service_name = n;
     }
     
-    if (avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, service_name, "_http._tcp", NULL, NULL, 80, "foo", NULL) < 0) {
-        avahi_log_error("Failed to add HTTP service");
+    if ((ret = avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST, service_name, "_http._tcp", NULL, NULL, 80, "foo", NULL)) != AVAHI_OK) {
+        avahi_log_error("Failed to add HTTP service : <%s>", avahi_strerror(ret	));
         goto fail;
     }
 
-    if (avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, service_name, "_ftp._tcp", NULL, NULL, 21, "foo", NULL) < 0) {
+    if (avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST, service_name, "_ftp._tcp", NULL, NULL, 21, "foo", NULL) < 0) {
         avahi_log_error("Failed to add FTP service");
         goto fail;
     }
 
-    if (avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,service_name, "_webdav._tcp", NULL, NULL, 80, "foo", NULL) < 0) {
+    if (avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST,service_name, "_webdav._tcp", NULL, NULL, 80, "foo", NULL) < 0) {
         avahi_log_error("Failed to add WEBDAV service");
         goto fail;
     }
 
-    if (avahi_server_add_dns_server_address(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, NULL, AVAHI_DNS_SERVER_RESOLVE, avahi_address_parse("192.168.50.1", AVAHI_PROTO_UNSPEC, &a), 53) < 0) {
+    if (avahi_server_add_dns_server_address(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST , NULL, AVAHI_DNS_SERVER_RESOLVE, avahi_address_parse("192.168.10.5", AVAHI_PROTO_UNSPEC, &a), 53) < 0) {
         avahi_log_error("Failed to add new DNS Server address");
         goto fail;
     }
@@ -347,7 +349,8 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[]) {
     
     avahi_server_config_init(&config);
 
-    avahi_address_parse("192.168.50.1", AVAHI_PROTO_UNSPEC, &config.wide_area_servers[0]);
+    avahi_address_parse("202.88.149.25", AVAHI_PROTO_UNSPEC, &config.wide_area_servers[0]);
+
     config.n_wide_area_servers = 1;
     config.enable_wide_area = 1;
 
@@ -358,10 +361,10 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[]) {
     r = avahi_s_record_browser_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, k, 0, record_browser_callback, NULL);
     avahi_key_unref(k);
 
-    hnr = avahi_s_host_name_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "cname.local", AVAHI_PROTO_UNSPEC, 0, hnr_callback, NULL);
-
-    ar = avahi_s_address_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, avahi_address_parse("192.168.50.1", AVAHI_PROTO_INET, &a), 0, ar_callback, NULL);
-
+    hnr = avahi_s_host_name_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "sharmas-pc", AVAHI_PROTO_UNSPEC, 0 , hnr_callback, NULL);
+	
+    ar = avahi_s_address_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, avahi_address_parse("10.1.147.226", AVAHI_PROTO_INET, &a), AVAHI_LOOKUP_USE_LLMNR, ar_callback, NULL);
+	
     db = avahi_s_domain_browser_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, NULL, AVAHI_DOMAIN_BROWSER_BROWSE, 0, db_callback, NULL);
 
     stb = avahi_s_service_type_browser_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, NULL, 0, stb_callback, NULL);

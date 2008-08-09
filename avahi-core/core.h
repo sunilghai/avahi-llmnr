@@ -135,6 +135,8 @@ void avahi_server_set_data(AvahiServer *s, void* userdata);
 /** Return the current state of the server object */
 AvahiServerState avahi_server_get_state(AvahiServer *s);
 
+int setup_llmnr_sockets(AvahiServer *s);
+
 /** Callback prototype for avahi_server_dump() */
 typedef void (*AvahiDumpCallback)(const char *text, void* userdata);
 

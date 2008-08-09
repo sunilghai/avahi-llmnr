@@ -1,7 +1,7 @@
 #ifndef fooifacehfoo
 #define fooifacehfoo
 
-/* $Id$ */
+/* $Id: iface.h 954 2005-11-13 16:36:33Z lennart $ */
 
 /***
   This file is part of avahi.
@@ -29,6 +29,7 @@ typedef struct AvahiHwInterface AvahiHwInterface;
 
 #include <avahi-common/llist.h>
 #include <avahi-common/address.h>
+#include <avahi-common/defs.h>
 
 #include "internal.h"
 #include "cache.h"
@@ -40,12 +41,19 @@ typedef struct AvahiHwInterface AvahiHwInterface;
 #include "browse.h"
 #include "querier.h"
 
+#include "llmnr-querier.h"
+#include "llmnr-query-sched.h"
+#include "llmnr-response.h"
+
+#include "verify.h"
+
 #ifdef HAVE_NETLINK
 #include "iface-linux.h"
 #elif defined(HAVE_PF_ROUTE)
 #include "iface-pfroute.h"
 #else
 typedef struct AvahiInterfaceMonitorOSDep AvahiInterfaceMonitorOSDep;
+
 struct AvahiInterfaceMonitorOSDep {
         
     unsigned query_addr_seq, query_link_seq;
@@ -93,26 +101,43 @@ struct AvahiHwInterface {
 struct AvahiInterface {
     AvahiInterfaceMonitor *monitor;
     AvahiHwInterface *hardware;
-
     AVAHI_LLIST_FIELDS(AvahiInterface, interface);
     AVAHI_LLIST_FIELDS(AvahiInterface, by_hardware);
     
     AvahiProtocol protocol;
-    int announcing;
-    AvahiAddress local_mcast_address;
-    int mcast_joined;
-
-    AvahiCache *cache;
-
-    AvahiQueryScheduler *query_scheduler;
-    AvahiResponseScheduler * response_scheduler;
-    AvahiProbeScheduler *probe_scheduler;
-
     AVAHI_LLIST_HEAD(AvahiInterfaceAddress, addresses);
-    AVAHI_LLIST_HEAD(AvahiAnnouncer, announcers);
+        
+    struct {
+	    int announcing;
+	    AvahiAddress local_mcast_address;
+	    int mcast_joined;
 
-    AvahiHashmap *queriers_by_key;
-    AVAHI_LLIST_HEAD(AvahiQuerier, queriers);
+	    AvahiCache *cache;
+
+	    AvahiQueryScheduler *query_scheduler;
+	    AvahiResponseScheduler * response_scheduler;
+	    AvahiProbeScheduler *probe_scheduler;
+
+	    AVAHI_LLIST_HEAD(AvahiAnnouncer, announcers);
+
+	    AvahiHashmap *queriers_by_key;
+	    AVAHI_LLIST_HEAD(AvahiQuerier, queriers);
+	} mdns;
+	
+	struct {
+		int verifying;
+		AvahiAddress local_llmnr_address;
+		int llmnr_joined;
+	
+		AvahiLLMNRQueryScheduler *query_scheduler;
+		AvahiLLMNRResponseScheduler *response_scheduler;
+		
+		AvahiHashmap *queryjobs_by_key;
+	
+		AVAHI_LLIST_HEAD(AvahiLLMNRQueryJob, queryjobs);
+/*		AVAHI_LLIST_HEAD(AvahiEntry, entries);*/
+		AVAHI_LLIST_HEAD(AvahiLLMNREntryVerify, verifiers); 
+	} llmnr;
 };
 
 struct AvahiInterfaceAddress {
@@ -126,7 +151,8 @@ struct AvahiInterfaceAddress {
 
     int global_scope;
     
-    AvahiSEntryGroup *entry_group;
+    AvahiSEntryGroup *entry_mdns_group;
+	AvahiSEntryGroup *entry_llmnr_group;
 };
 
 AvahiInterfaceMonitor *avahi_interface_monitor_new(AvahiServer *server);
@@ -142,7 +168,7 @@ int avahi_dump_caches(AvahiInterfaceMonitor *m, AvahiDumpCallback callback, void
 
 void avahi_interface_monitor_update_rrs(AvahiInterfaceMonitor *m, int remove_rrs);
 int avahi_address_is_local(AvahiInterfaceMonitor *m, const AvahiAddress *a);
-void avahi_interface_monitor_check_relevant(AvahiInterfaceMonitor *m);
+void avahi_interface_monitor_check_relevant(AvahiInterfaceMonitor *m, AvahiPublishProtocol proto);
 
 /* AvahiHwInterface */
 
@@ -150,7 +176,7 @@ AvahiHwInterface *avahi_hw_interface_new(AvahiInterfaceMonitor *m, AvahiIfIndex 
 void avahi_hw_interface_free(AvahiHwInterface *hw, int send_goodbye);
 
 void avahi_hw_interface_update_rrs(AvahiHwInterface *hw, int remove_rrs);
-void avahi_hw_interface_check_relevant(AvahiHwInterface *hw);
+void avahi_hw_interface_check_relevant(AvahiHwInterface *hw, AvahiPublishProtocol proto);
 
 AvahiHwInterface* avahi_interface_monitor_get_hw_interface(AvahiInterfaceMonitor *m, int idx);
 
@@ -160,16 +186,21 @@ AvahiInterface* avahi_interface_new(AvahiInterfaceMonitor *m, AvahiHwInterface *
 void avahi_interface_free(AvahiInterface *i, int send_goodbye);
 
 void avahi_interface_update_rrs(AvahiInterface *i, int remove_rrs);
-void avahi_interface_check_relevant(AvahiInterface *i);
+void avahi_interface_check_relevant(AvahiInterface *i, AvahiPublishProtocol proto);
 int avahi_interface_is_relevant(AvahiInterface *i);
 
-void avahi_interface_send_packet(AvahiInterface *i, AvahiDnsPacket *p);
-void avahi_interface_send_packet_unicast(AvahiInterface *i, AvahiDnsPacket *p, const AvahiAddress *a, uint16_t port);
-
+void avahi_interface_send_packet(AvahiInterface *i, AvahiDnsPacket *p, AvahiPublishProtocol proto);
+void avahi_interface_send_packet_unicast(AvahiInterface *i, AvahiDnsPacket *p, const AvahiAddress *a, uint16_t port, AvahiPublishProtocol proto);
 int avahi_interface_post_query(AvahiInterface *i, AvahiKey *k, int immediately, unsigned *ret_id);
 int avahi_interface_withraw_query(AvahiInterface *i, unsigned id);
 int avahi_interface_post_response(AvahiInterface *i, AvahiRecord *record, int flush_cache, const AvahiAddress *querier, int immediately);
 int avahi_interface_post_probe(AvahiInterface *i, AvahiRecord *p, int immediately);
+
+/*LLMNR*/
+int avahi_schedule_llmnr_response_job(AvahiLLMNRResponseScheduler *s, AvahiDnsPacket *p, const AvahiAddress *querier, uint16_t port);
+int avahi_interface_post_llmnr_query(AvahiInterface *i, AvahiLLMNRQuery *lq, int im);
+int avahi_interface_withdraw_llmnr_query(AvahiInterface *i, unsigned id);
+/* /LLMNR */
 
 int avahi_interface_match(AvahiInterface *i, AvahiIfIndex idx, AvahiProtocol protocol);
 int avahi_interface_address_on_link(AvahiInterface *i, const AvahiAddress *a);
