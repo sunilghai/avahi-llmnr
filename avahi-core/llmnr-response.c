@@ -81,7 +81,6 @@ static void elapse_response_callback(AVAHI_GCC_UNUSED AvahiTimeEvent *e, void *u
 	/* Send Packet */
 	avahi_interface_send_packet_unicast(rj->s->interface, rj->reply, &rj->address, rj->port, AVAHI_LLMNR);
 	avahi_llmnr_response_job_free(rj->s, rj);
-	avahi_log_info("LLMNR Response Packet Sent");
 }
 
 int avahi_post_llmnr_response(AvahiLLMNRResponseScheduler *s, AvahiDnsPacket *p, const AvahiAddress *a, uint16_t port) {

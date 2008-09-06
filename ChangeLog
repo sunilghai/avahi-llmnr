@@ -1,5 +1,75 @@
-2008-06-18  gettextize  <bug-gnu-gettext@gnu.org>
+ChangeLog
 
-	* Makefile.am (EXTRA_DIST): Add config.rpath.
-	* configure.ac (AC_CONFIG_FILES): Add po/Makefile.in.
+(Updated Version : http://docs.google.com/View?docid=dfps2fcc_27dtv5kjcf)
+
+------------------------------------------------------------------------
+Addition of Flags (see avahi-common/defs.h) : 
+
+AvahiPublishFlags
+AVAHI_PUBLISH_USE_LLMNR : Register RR using LLMNR.
+AVAHI_PUBLISH_NO_VERIFY : While publishing new LLMNR entry, don't perform verification process for that entry.
+
+AvahiLookupFlags
+AVAHI_LOOKUP_USE_LLMNR : Perform lookup using LLMNR protocol.
+
+AvahiLookupResultFlags
+AVAHI_LOOKUP_RESULT_LLMNR : The response originates from LLMNR.
+
+------------------------------------------------------------------------
+<AvahiCore API's>
+
+PUBLISHING
+1. Generally it is advised to publish only single-label-names using LLMNR, though one can also publish FQDN's. There has not been any change in avahi_server_add_xxx() functions with respect to mDNS.
+
+2. Publishing of only A/AAAA/PTR records is supported via LLMNR. To publish LLMNR single-label-name/FQDN, you can pass
+'AVAHI_PUBLISH_USE_LLMNR' in 'AvahiPublishFlags' parameter while calling avahi_server_add(), avahi_server_add_address() functions.
+(Though it is recommended to pass "0" as this value and avahi will automatically decide which protocol should be used while publishing
+record <Read next point>)
+
+3. By default (when value of parameter 'AvahiPublishFlags' passed is "0" in avahi_server_add/_address() functions) avahi_server_add() and avahi_server_add_address() functions publish single-label-name using LLMNR, rest same as it was before. (which means to publish a FQDN via LLMNR, you will have to pass AVAHI_PUBLISH_USE_LLMNR flag!)
+
+<Important>
+4. To maintain a set of RR's, an object of 'AvahiSEntryGroup' is maintained by the client. Since avahi can now publish both mDNS and  LLMNR names, so to avoid any ambiguity, each 'AvahiSEntryGroup' object is allowed to publish either mDNS RR's or LLMNR RR's only. 
+*Type of 'AvahiSEntryGroup' is decided while first entry of group is being added* and once the type of the group has been decided (let's say mDNS) if an attempt is made to register another type of name (say LLMNR) using the same 'AvahiSEntryGroup' object, an error code is returned.(AVAHI_ERR_INVALID_GROUP)
+
+LOOKUP
+
+5. 'AvahiSRBLookup' handles single-label LLMNR names too by default with all same _BROWSER events as before.
+
+6. 'AvahiSHostNameResolver' has same timeout of 5 seconds and resolves single-label LLMNR names by default.
+
+7. Timeout of 'AvahiSAddressResolver' has been increased to 10 seconds (which is likely to be changed) and it performs LLMNR reverse queries too.
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+<Avahi Client API's>
+
+PUBLISHING
+1. Generally it is advised to publish only single-label-names using LLMNR, though one can also publish FQDN's. There has not been any change in avahi_entry_group_add_address() and avahi_entry_group_add_record() functions with respect to mDNS.
+
+2. Publishing of only A/AAAA/PTR records is supported via LLMNR. To publish LLMNR single-label-name/FQDN, you can pass 'AVAHI_PUBLISH_USE_LLMNR' in 'AvahiPublishFlags' parameter while calling avahi_entry_group_add_address(), or avahi_entry_group_add_record() function. (Though it is recommended to pass "0" as this value and avahi will automatically decide which protocol should be used while publishing record <Read next point>)
+
+3. By default (when value of parameter 'AvahiPublishFlags' passed is "0" in avahi_entry_group_add_address/record() functions) avahi_entry_group_add_address() and avahi_entry_group_add_record() functions publish single-label-names using LLMNR, rest same as it was before. (which means to publish a FQDN via LLMNR, you will have to pass AVAHI_PUBLISH_USE_LLMNR flag!)
+
+<Important>
+4. To maintain each set of RR's an object of 'AvahiEntryGroup' is maintained by the client. Since avahi can now publish both mDNS and  LLMNR names, so to avoid any ambiguity, each 'AvahiEntryGroup' object is allowed to publish either mDNS RR's or LLMNR RR's only. 
+*Type of 'AvahiEntryGroup' is decided while first entry of group is being added* and once the type of the group has been decided (let's say mDNS) if an attempt is made to register another type of name (say LLMNR) using the same 'AvahiEntryGroup' object, an error code is returned.
+
+LOOKUP
+5. AvahiHostNameResolver : Same working, looks for single-label-names via LLMNR by default.
+6. AvahiAddressResolver : Same working. Timeout has been increased to 10 seconds.
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+<Avahi Daemon>
+
+1. Please read /avahi-daemon/hosts file for details.
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+<Avahi Utils>
+
+1. avahi-publish/avahi-publish-address can be used to publish single-label-names via LLMNR.
+2. avahi-resolve-address : Issues reverse lookup queries for LLMNR too. Timeout : 10 seconds.
+3. avahi-resolve-host-name : Resolves single-label names via LLMNR. Same timeout.
+------------------------------------------------------------------------
 

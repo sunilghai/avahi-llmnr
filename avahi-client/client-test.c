@@ -257,8 +257,8 @@ int main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[]) {
     
     printf("Sucessfully created entry group %p\n", (void*) group);
 
-    printf("%s\n", avahi_strerror(avahi_entry_group_add_service (group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "Lathiat's Site", "_http._tcp", NULL, NULL, 80, "foo=bar", NULL)));
-    printf("add_record: %d\n", avahi_entry_group_add_record (group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "TestX", 0x01, 0x10, 120, "\5booya", 6));
+    printf("add_service : %s\n", avahi_strerror(avahi_entry_group_add_service (group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "Lathiat's Site", "_http._tcp", NULL, NULL, 80, "foo=bar", NULL)));
+    printf("add_record: %s\n", avahi_strerror(avahi_entry_group_add_record (group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "TestX.local", 0x01, 0x10, 120, "\5booya", 6)));
 
     avahi_entry_group_commit (group);
 
@@ -281,18 +281,18 @@ int main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[]) {
     else
         printf ("Sucessfully created service browser %p\n", (void*) sb);
 
-    hnr = avahi_host_name_resolver_new (avahi, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "ecstasy.local", AVAHI_PROTO_UNSPEC, 0, avahi_host_name_resolver_callback, "omghai4u");
+    hnr = avahi_host_name_resolver_new (avahi, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "mango-PC", AVAHI_PROTO_UNSPEC, 0, avahi_host_name_resolver_callback, "omghai4u");
     if (hnr == NULL)
         printf ("Failed to create hostname resolver object\n");
     else
         printf ("Successfully created hostname resolver object\n");
 
-    aar = avahi_address_parse ("224.0.0.251", AVAHI_PROTO_UNSPEC, &a);
+    aar = avahi_address_parse ("10.1.147.88", AVAHI_PROTO_UNSPEC, &a);
     if (aar == NULL) {
         printf ("failed to create address object\n");
     } else {
         group2 = avahi_entry_group_new (avahi, avahi_entry_group2_callback, "omghai222");
-        if ((error = avahi_entry_group_add_address (group2, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "test-mdns.local.", aar)) < 0)
+        if ((error = avahi_entry_group_add_address (group2, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, "test-llmnr", aar)) < 0)
         {
             printf ("*** failed to add address to entry group: %s\n", avahi_strerror (error));
             avahi_entry_group_free (group2);

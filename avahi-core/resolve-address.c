@@ -32,7 +32,7 @@
 
 #include "browse.h"
 
-#define TIMEOUT_MSEC 5000
+#define TIMEOUT_MSEC 10000
 
 struct AvahiSAddressResolver {
     AvahiServer *server;
@@ -50,6 +50,7 @@ struct AvahiSAddressResolver {
 
     int retry_with_multicast;
 	int retry_with_llmnr;
+	int llmnr_has_record;
     AvahiKey *key;
 
     AvahiTimeEvent *time_event;
@@ -90,7 +91,7 @@ static void time_event_callback(AvahiTimeEvent *e, void *userdata) {
 static void start_timeout(AvahiSAddressResolver *r) {
     struct timeval tv;
     assert(r);
-
+	
     if (r->time_event)
         return;
 
@@ -116,7 +117,10 @@ static void record_browser_callback(
         case AVAHI_BROWSER_NEW: 
             assert(record);
             assert(record->key->type == AVAHI_DNS_TYPE_PTR);
-            
+
+			if (flags & AVAHI_LOOKUP_RESULT_LLMNR)
+				r->llmnr_has_record = 1;
+
             if (r->interface > 0 && interface != r->interface)
                 return;
             
@@ -140,7 +144,7 @@ static void record_browser_callback(
         case AVAHI_BROWSER_REMOVE:
             assert(record);
             assert(record->key->type == AVAHI_DNS_TYPE_PTR);
-            
+
             if (r->ptr_record && avahi_record_equal_no_ttl(record, r->ptr_record)) {
                 avahi_record_unref(r->ptr_record);
                 r->ptr_record = NULL;
@@ -154,14 +158,39 @@ static void record_browser_callback(
             break;
             
         case AVAHI_BROWSER_CACHE_EXHAUSTED:
+			break;
         case AVAHI_BROWSER_ALL_FOR_NOW:
+
+			/* when called by _LLMNR we trigger lookup by _MULTICAST*/
+			if ((flags & AVAHI_LOOKUP_RESULT_LLMNR) && (r->retry_with_multicast) && !r->llmnr_has_record) {
+            	r->retry_with_multicast = 0;
+                avahi_s_record_browser_free(r->record_browser);
+                r->record_browser = avahi_s_record_browser_new(r->server, r->interface, r->protocol, r->key, AVAHI_LOOKUP_USE_MULTICAST, record_browser_callback, r);
+
+         		if (r->record_browser) {
+            		start_timeout(r);
+            		break;
+         		}
+			}
             break;
 
         case AVAHI_BROWSER_FAILURE:
 
+            if (r->retry_with_llmnr) {
+                r->retry_with_llmnr = 0;
+                avahi_s_record_browser_free(r->record_browser);
+                r->record_browser = avahi_s_record_browser_new(r->server, r->interface, r->protocol, r->key, AVAHI_LOOKUP_USE_LLMNR, record_browser_callback, r);
+
+                if (r->record_browser) {
+			        start_timeout(r);
+                    break;
+                }
+			}
+<<<<<<< HEAD:avahi-core/resolve-address.c
+			/* FIXME :After retrying with LLMNR, first failure on any interface in case if AVAHI_IF_UNSPEC
+			will restart 'r' with multicast, though any RR's will come. */
             if (r->retry_with_multicast) {
                 r->retry_with_multicast = 0;
-
                 avahi_s_record_browser_free(r->record_browser);
                 r->record_browser = avahi_s_record_browser_new(r->server, r->interface, r->protocol, r->key, AVAHI_LOOKUP_USE_MULTICAST, record_browser_callback, r);
 
@@ -186,6 +215,10 @@ static void record_browser_callback(
 
             r->flags = flags;
             finish(r, AVAHI_RESOLVER_FAILURE);
+=======
+       /*     r->flags = flags;
+            finish(r, AVAHI_RESOLVER_FAILURE);*/
+>>>>>>> 33ed9eb... squash_2:avahi-core/resolve-address.c
             break;
     }
 }
@@ -213,7 +246,6 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
     AVAHI_CHECK_VALIDITY_RETURN_NULL(server, AVAHI_FLAGS_VALID(flags, AVAHI_LOOKUP_USE_WIDE_AREA|AVAHI_LOOKUP_USE_MULTICAST|AVAHI_LOOKUP_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
     
     avahi_reverse_lookup_name(address, n, sizeof(n));
-
     if (!(k = avahi_key_new(n, AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_PTR))) {
         avahi_server_set_errno(server, AVAHI_ERR_NO_MEMORY);
         return NULL;
@@ -235,6 +267,7 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
     r->flags = 0;
     r->retry_with_multicast = 0;
 	r->retry_with_llmnr = 0;
+	r->llmnr_has_record = 0;
     r->key = k;
 
     r->record_browser = NULL;
@@ -245,12 +278,20 @@ AvahiSAddressResolver *avahi_s_address_resolver_new(
     if (!(flags & (AVAHI_LOOKUP_USE_MULTICAST|AVAHI_LOOKUP_USE_WIDE_AREA|AVAHI_LOOKUP_USE_LLMNR))) {
 
         if (!server->wide_area.wide_area_lookup_engine || !avahi_wide_area_has_servers(server->wide_area.wide_area_lookup_engine))
+<<<<<<< HEAD:avahi-core/resolve-address.c
             flags |= AVAHI_LOOKUP_USE_MULTICAST;
+=======
+            flags |= AVAHI_LOOKUP_USE_LLMNR;
+>>>>>>> cc62833... squash 1:avahi-core/resolve-address.c
         else {
             flags |= AVAHI_LOOKUP_USE_WIDE_AREA;
-            r->retry_with_multicast = 1;
+            r->retry_with_llmnr = 1;
         }
+<<<<<<< HEAD:avahi-core/resolve-address.c
 		r->retry_with_llmnr = 1;
+=======
+		r->retry_with_multicast = 1;
+>>>>>>> cc62833... squash 1:avahi-core/resolve-address.c
     }
     
     r->record_browser = avahi_s_record_browser_new(server, interface, protocol, k, flags, record_browser_callback, r);

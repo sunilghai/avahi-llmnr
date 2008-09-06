@@ -59,7 +59,10 @@ static void withdraw_llmnr_entry(AvahiServer *s, AvahiEntry *e) {
 
 		e->group->proto.llmnr.n_verifying = 0;
 		avahi_s_entry_group_change_state(e->group, AVAHI_ENTRY_GROUP_LLMNR_COLLISION);
+<<<<<<< HEAD:avahi-core/verify.c
 
+=======
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 	} else 
 	    	e->dead = 1;
 
@@ -89,13 +92,21 @@ static void query_callback(
 
 	/* May be by the time we come back in this function due to conflict in some other entry
 	of the group this entry belongs to, this entry has already been put up in the dead state.*/
+<<<<<<< HEAD:avahi-core/verify.c
 	if(ev->e->dead)
+=======
+	if (ev->e->dead) 
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 		return;
 
 	assert(AVAHI_IF_VALID(idx));
 	assert(AVAHI_PROTO_VALID(protocol));
 	assert(userdata);
 	assert(ev->e->type == AVAHI_ENTRY_LLMNR);
+<<<<<<< HEAD:avahi-core/verify.c
+=======
+	assert(!ev->e->dead);
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 
 	/* Start comparing values.*/
 	if(ev->state == AVAHI_CONFLICT) {
@@ -109,6 +120,7 @@ static void query_callback(
 
 		if(!r && !address) {
 			/* No record found for this key. Our name is unique. */
+<<<<<<< HEAD:avahi-core/verify.c
 			char *t = avahi_record_to_string(ev->e->record);		
 /*			avahi_log_info("**LLMNR Entry Verified\n %s on interface index (%d) and protocol : %s", 
 							t, 
@@ -118,6 +130,18 @@ static void query_callback(
 			ev->state = AVAHI_VERIFIED;
 
 			if(ev->e->group)
+=======
+/*			char *t;
+			t = avahi_record_to_string(ev->e->record);		
+			avahi_log_info("LLMNR Entry Verified\n %s on interface index (%d) and protocol : %s",
+							t, 
+							ev->interface->hardware->index, 
+							avahi_proto_to_string(ev->interface->protocol));*/
+
+			ev->state = AVAHI_VERIFIED;
+
+			if(ev->e->group) 
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 				decrease_n_verify(ev);
 
 		} else {
@@ -165,7 +189,11 @@ static void query_callback(
 		}
 	}
 
+<<<<<<< HEAD:avahi-core/verify.c
 	/*ev->lq = NULL;*/
+=======
+	ev->lq = NULL;
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 	return;
 }
 
@@ -174,6 +202,12 @@ static void remove_verifier(AvahiServer *s, AvahiLLMNREntryVerify *ev) {
 	assert(ev);
 	assert(ev->e->type == AVAHI_ENTRY_LLMNR);
 
+<<<<<<< HEAD:avahi-core/verify.c
+=======
+	if (ev->lq)
+		avahi_llmnr_query_scheduler_withdraw_by_id(ev->interface->llmnr.query_scheduler, ev->lq->post_id);
+
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 	AVAHI_LLIST_REMOVE(AvahiLLMNREntryVerify, by_interface, ev->interface->llmnr.verifiers, ev);
 	AVAHI_LLIST_REMOVE(AvahiLLMNREntryVerify, by_entry, ev->e->proto.llmnr.verifiers, ev);
 
@@ -225,7 +259,11 @@ static void set_state(AvahiLLMNREntryVerify *ev) {
 		vdata->t_bit = 0;
 
 		/* Initiate Query */
+<<<<<<< HEAD:avahi-core/verify.c
 		avahi_llmnr_query_add(ev->interface, e->record->key, AVAHI_LLMNR_UNIQUENESS_VERIFICATION_QUERY, query_callback, vdata);
+=======
+		ev->lq = avahi_llmnr_query_add(ev->interface, e->record->key, AVAHI_LLMNR_UNIQUENESS_VERIFICATION_QUERY, query_callback, vdata);
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 
 		/* Increase n_verify */
 		if(e->group) {
@@ -263,6 +301,10 @@ static void new_verifier(AvahiServer *s, AvahiInterface *i, AvahiEntry *e) {
 	ev->s= s;
 	ev->interface = i;
 	ev->e = e;
+<<<<<<< HEAD:avahi-core/verify.c
+=======
+	ev->lq = NULL;
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 
 	AVAHI_LLIST_PREPEND(AvahiLLMNREntryVerify, by_interface, i->llmnr.verifiers, ev);
 	AVAHI_LLIST_PREPEND(AvahiLLMNREntryVerify, by_entry, e->proto.llmnr.verifiers, ev);
@@ -349,6 +391,13 @@ void avahi_llmnr_entry_return_to_initial_state(AvahiServer *s, AvahiEntry *e, Av
 
 	if (ev->state == AVAHI_VERIFYING)
 		if (ev->e->group) {
+<<<<<<< HEAD:avahi-core/verify.c
+=======
+
+			avahi_llmnr_query_destroy(ev->lq);
+			ev->lq = NULL;
+
+>>>>>>> cc62833... squash 1:avahi-core/verify.c
 			assert(ev->e->group->type == AVAHI_GROUP_LLMNR);
 			ev->e->group->proto.llmnr.n_verifying--;
 		}

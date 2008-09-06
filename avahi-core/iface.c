@@ -208,9 +208,17 @@ static int interface_mcast_join(AvahiInterface *i, int join, AvahiPublishProtoco
     if (!!join  == (proto == AVAHI_MDNS ? !!i->mdns.mcast_joined : !!i->llmnr.llmnr_joined))
 		return 0;
 
+<<<<<<< HEAD:avahi-core/iface.c
     if ((i->protocol == AVAHI_PROTO_INET6 && proto == AVAHI_MDNS ? (i->monitor->server->mdns.fd_ipv6 < 0):(i->monitor->server->llmnr.fd_ipv6 < 0)) ||
 		(i->protocol == AVAHI_PROTO_INET && (proto == AVAHI_MDNS ? (i->monitor->server->mdns.fd_ipv4 < 0):(i->monitor->server->llmnr.fd_ipv4 < 0))))
         return -1;
+=======
+    if ((i->protocol == AVAHI_PROTO_INET6 && 
+		(proto == AVAHI_MDNS ? (i->monitor->server->mdns.fd_ipv6 < 0) : (i->monitor->server->llmnr.fd_ipv6 < 0))) ||
+		(i->protocol == AVAHI_PROTO_INET && 
+		(proto == AVAHI_MDNS ? (i->monitor->server->mdns.fd_ipv4 < 0) : (i->monitor->server->llmnr.fd_ipv4 < 0))))
+	        return -1;
+>>>>>>> cc62833... squash 1:avahi-core/iface.c
     
     if (join) {
         AvahiInterfaceAddress *a;

@@ -22,6 +22,10 @@ struct AvahiLLMNREntryVerify {
 	AvahiInterface *interface; 
 	AvahiEntry *e;
 
+<<<<<<< HEAD:avahi-core/verify.h
+=======
+	AvahiLLMNRQuery *lq;
+>>>>>>> cc62833... squash 1:avahi-core/verify.h
 	AvahiLLMNREntryVerifyState state;
 
 	AVAHI_LLIST_FIELDS(AvahiLLMNREntryVerify, by_interface);

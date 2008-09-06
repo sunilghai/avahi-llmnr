@@ -170,7 +170,11 @@ static void create_entries(int new_name) {
         service_name = n;
     }
     
+<<<<<<< HEAD:avahi-core/avahi-test.c
     if ((ret = avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST, service_name, "_http._tcp", NULL, NULL, 80, "foo", NULL)) != AVAHI_OK) {
+=======
+    if ((ret = avahi_server_add_service(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0, service_name, "_http._tcp", NULL, NULL, 80, "foo", NULL)) != AVAHI_OK) {
+>>>>>>> cc62833... squash 1:avahi-core/avahi-test.c
         avahi_log_error("Failed to add HTTP service : <%s>", avahi_strerror(ret	));
         goto fail;
     }
@@ -185,7 +189,11 @@ static void create_entries(int new_name) {
         goto fail;
     }
 
+<<<<<<< HEAD:avahi-core/avahi-test.c
     if (avahi_server_add_dns_server_address(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, AVAHI_PUBLISH_USE_MULTICAST , NULL, AVAHI_DNS_SERVER_RESOLVE, avahi_address_parse("192.168.10.5", AVAHI_PROTO_UNSPEC, &a), 53) < 0) {
+=======
+    if (avahi_server_add_dns_server_address(server, group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0 , NULL, AVAHI_DNS_SERVER_RESOLVE, avahi_address_parse("192.168.10.5", AVAHI_PROTO_UNSPEC, &a), 53) < 0) {
+>>>>>>> cc62833... squash 1:avahi-core/avahi-test.c
         avahi_log_error("Failed to add new DNS Server address");
         goto fail;
     }
@@ -361,9 +369,15 @@ int main(AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[]) {
     r = avahi_s_record_browser_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, k, 0, record_browser_callback, NULL);
     avahi_key_unref(k);
 
+<<<<<<< HEAD:avahi-core/avahi-test.c
     hnr = avahi_s_host_name_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "sharmas-pc", AVAHI_PROTO_UNSPEC, 0 , hnr_callback, NULL);
 	
     ar = avahi_s_address_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, avahi_address_parse("10.1.147.226", AVAHI_PROTO_INET, &a), AVAHI_LOOKUP_USE_LLMNR, ar_callback, NULL);
+=======
+    hnr = avahi_s_host_name_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "mango-pc", AVAHI_PROTO_UNSPEC, 0 , hnr_callback, NULL);
+	
+    ar = avahi_s_address_resolver_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, avahi_address_parse("10.1.147.86", AVAHI_PROTO_INET, &a), 0, ar_callback, NULL);
+>>>>>>> cc62833... squash 1:avahi-core/avahi-test.c
 	
     db = avahi_s_domain_browser_new(server, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, NULL, AVAHI_DOMAIN_BROWSER_BROWSE, 0, db_callback, NULL);
 

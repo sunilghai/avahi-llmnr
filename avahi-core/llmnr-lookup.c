@@ -32,7 +32,7 @@ AvahiLLMNRLookup* avahi_llmnr_lookup_new(
 	
 	struct timeval tv;
 	AvahiLLMNRLookup *l, *t;
-
+	
 	assert(e);
 	assert(AVAHI_IF_VALID(interface));
 	assert(AVAHI_PROTO_VALID(protocol));
@@ -136,11 +136,14 @@ void avahi_llmnr_lookup_free(AvahiLLMNRLookup *l) {
 
 static void elapse_timeout_callback(AVAHI_GCC_UNUSED AvahiTimeEvent *e, void *userdata) {
 	AvahiLLMNRLookup *l = userdata;
-	
-	l->callback(l->engine, l->interface, l->protocol, AVAHI_BROWSER_ALL_FOR_NOW, AVAHI_LOOKUP_RESULT_LLMNR, NULL, l->userdata);
 
-	avahi_time_event_free(l->time_event);
-	l->time_event = NULL;
+	l->callback(l->engine, l->interface, l->protocol, AVAHI_BROWSER_ALL_FOR_NOW, AVAHI_LOOKUP_RESULT_LLMNR, NULL, l->userdata);
+	
+	if (l->time_event) {
+		avahi_time_event_free(l->time_event);
+		l->time_event = NULL;
+	}
+
 	lookup_stop(l);
 	return;
 }
@@ -214,7 +217,11 @@ static void destroy_cache_entry(AvahiLLMNRCacheEntry *c) {
 
 	AvahiLLMNRCacheEntry *t;
 	assert(c);
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
 	
+=======
+
+>>>>>>> cc62833... squash 1:avahi-core/llmnr-lookup.c
 	if (c->time_event) 
 		avahi_time_event_free(c->time_event);
 
@@ -230,7 +237,13 @@ static void destroy_cache_entry(AvahiLLMNRCacheEntry *c) {
 	/* Run callbacks that entry has been deleted */
 	/* run_callbacks(c->engine, c->interface, c->protocol, c->record, AVAHI_BROWSER_REMOVE); */
 
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
 	c->engine->n_cache_entries--;
+=======
+	assert(c->engine->n_cache_entries > 0);
+	c->engine->n_cache_entries--;
+
+>>>>>>> cc62833... squash 1:avahi-core/llmnr-lookup.c
 	avahi_record_unref(c->record);
 
 	avahi_free(c);
@@ -317,10 +330,22 @@ static void query_callback(
 	if(r)
 		/* Update cache */
 		update_cache(lookup->engine, idx, protocol, r);
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
 	/*else 
 		 This query was issued by 'lookup'. So call lookup->callback specifying that
 		on specified interface and protocol we have no records available 
 		lookup->callback(lookup->engine, idx, protocol, AVAHI_BROWSER_FAILURE, AVAHI_LOOKUP_RESULT_LLMNR, NULL, lookup->userdata); */
+=======
+	else 
+		/*This query was issued by 'lookup'. So call lookup->callback specifying that
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
+		on specified interface and protocol we have no records available */
+		lookup->callback(lookup->engine, idx, protocol, AVAHI_BROWSER_FAILURE, AVAHI_LOOKUP_RESULT_LLMNR, NULL, lookup->userdata); 
+>>>>>>> cc62833... squash 1:avahi-core/llmnr-lookup.c
+=======
+		on specified interface and protocol we have no records available 
+		lookup->callback(lookup->engine, idx, protocol, AVAHI_BROWSER_FAILURE, AVAHI_LOOKUP_RESULT_LLMNR, NULL, lookup->userdata); */
+>>>>>>> 33ed9eb... squash_2:avahi-core/llmnr-lookup.c
 
 	/* We can't stop the lookup right away because we may have some more responses coming 
 	up from more interfaces */
@@ -471,7 +496,9 @@ AvahiLLMNRLookupEngine* avahi_llmnr_lookup_engine_new(AvahiServer *s) {
 }
 
 void avahi_llmnr_lookup_engine_free(AvahiLLMNRLookupEngine *e) {
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
 	AvahiLLMNRLookup *l;
+<<<<<<< HEAD:avahi-core/llmnr-lookup.c
 	AvahiLLMNRCacheEntry *c;
 
 	assert(e);
@@ -481,6 +508,18 @@ void avahi_llmnr_lookup_engine_free(AvahiLLMNRLookupEngine *e) {
 
 	for(l = e->lookups; l; l = l->lookups_next)
 		lookup_destroy(l);
+=======
+
+=======
+>>>>>>> 33ed9eb... squash_2:avahi-core/llmnr-lookup.c
+	assert(e);
+
+	while (e->cache)
+		destroy_cache_entry(e->cache);
+
+	while (e->lookups)
+		lookup_destroy(e->lookups);
+>>>>>>> cc62833... squash 1:avahi-core/llmnr-lookup.c
 
 	assert(e->n_cache_entries == 0);
 

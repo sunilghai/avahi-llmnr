@@ -41,6 +41,7 @@
 #include <avahi-common/malloc.h>
 #include <avahi-common/error.h>
 #include <avahi-common/domain.h>
+#include <avahi-common/defs.h>
 
 #include "internal.h"
 #include "iface.h"
@@ -52,10 +53,13 @@
 #include "rr-util.h"
 #include "domain-util.h"
 
-static void transport_flags_from_domain(AvahiServer *s, AvahiPublishFlags *flags, const char *domain) {
+static void transport_flags_from_domain(AvahiServer *s, AvahiPublishFlags *flags, const char *domain, int check_for_llmnr) {
     assert(flags);
     assert(domain);
+    assert(!((*flags & AVAHI_PUBLISH_USE_MULTICAST) && (*flags & AVAHI_PUBLISH_USE_WIDE_AREA)));
 
+<<<<<<< HEAD:avahi-core/entry.c
+<<<<<<< HEAD:avahi-core/entry.c
     assert(!((*flags & AVAHI_PUBLISH_USE_MULTICAST) && (*flags & AVAHI_PUBLISH_USE_WIDE_AREA)));
     assert(!((*flags & AVAHI_PUBLISH_USE_WIDE_AREA) && (*flags & AVAHI_PUBLISH_USE_LLMNR)));
     assert(!((*flags & AVAHI_PUBLISH_USE_LLMNR) && (*flags & AVAHI_PUBLISH_USE_MULTICAST)));
@@ -75,33 +79,68 @@ static void transport_flags_from_domain(AvahiServer *s, AvahiPublishFlags *flags
 
     else 
         *flags |= AVAHI_PUBLISH_USE_WIDE_AREA;
+=======
+	if (check_for_llmnr) {
+		assert(!((*flags & AVAHI_PUBLISH_USE_WIDE_AREA) && (*flags & AVAHI_PUBLISH_USE_LLMNR)));
+		assert(!((*flags & AVAHI_PUBLISH_USE_MULTICAST) && (*flags & AVAHI_PUBLISH_USE_LLMNR)));
+=======
+    if (check_for_llmnr) {
+        assert(!((*flags & AVAHI_PUBLISH_USE_WIDE_AREA) && (*flags & AVAHI_PUBLISH_USE_LLMNR)));
+        assert(!((*flags & AVAHI_PUBLISH_USE_MULTICAST) && (*flags & AVAHI_PUBLISH_USE_LLMNR)));
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+
+        if (*flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_WIDE_AREA | AVAHI_PUBLISH_USE_LLMNR))
+            return;
+
+    } else /*!check_for_llmnr*/
+        if (*flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_WIDE_AREA))
+            return;
+
+    if (check_for_llmnr && avahi_is_valid_host_name(domain)) 
+           *flags |= AVAHI_PUBLISH_USE_LLMNR;
+
+    else if (!s->wide_area.wide_area_lookup_engine ||
+        !avahi_wide_area_has_servers(s->wide_area.wide_area_lookup_engine) ||
+        avahi_domain_ends_with(domain, AVAHI_MDNS_SUFFIX_LOCAL) ||
+        avahi_domain_ends_with(domain, AVAHI_MDNS_SUFFIX_ADDR_IPV4) ||
+        avahi_domain_ends_with(domain, AVAHI_MDNS_SUFFIX_ADDR_IPV6)) 
+        *flags |= AVAHI_PUBLISH_USE_MULTICAST;
+
+<<<<<<< HEAD:avahi-core/entry.c
+	else 
+   		*flags |= AVAHI_PUBLISH_USE_WIDE_AREA;
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
+=======
+    else 
+           *flags |= AVAHI_PUBLISH_USE_WIDE_AREA;
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
 }
 
 void avahi_entry_free(AvahiServer*s, AvahiEntry *e) {
     AvahiEntry *t;
-	AvahiHashmap *entries_by_key;
+    AvahiHashmap *entries_by_key;
     assert(s);
     assert(e);
 
-	if (e->type == AVAHI_ENTRY_MDNS) {
+    if (e->type == AVAHI_ENTRY_MDNS) {
 
-		avahi_goodbye_entry(s, e, 1, 1);
-		AVAHI_LLIST_REMOVE(AvahiEntry, entries, s->mdns.entries, e);
-		entries_by_key = s->mdns.entries_by_key;
-	} else {
+        avahi_goodbye_entry(s, e, 1, 1);
+        AVAHI_LLIST_REMOVE(AvahiEntry, entries, s->mdns.entries, e);
+        entries_by_key = s->mdns.entries_by_key;
+    } else {
 
-		assert (e->type == AVAHI_ENTRY_LLMNR);
-		avahi_remove_verifiers (s, e);
-		AVAHI_LLIST_REMOVE(AvahiEntry, entries, s->llmnr.entries, e);
-		entries_by_key = s->llmnr.entries_by_key;
-	}
+        assert (e->type == AVAHI_ENTRY_LLMNR);
+        avahi_remove_verifiers (s, e);
+        AVAHI_LLIST_REMOVE(AvahiEntry, entries, s->llmnr.entries, e);
+        entries_by_key = s->llmnr.entries_by_key;
+    }
 
-	t = avahi_hashmap_lookup(entries_by_key, e->record->key);
+    t = avahi_hashmap_lookup(entries_by_key, e->record->key);
     AVAHI_LLIST_REMOVE(AvahiEntry, by_key, t, e);
     if (t)
         avahi_hashmap_replace(entries_by_key, t->record->key, t);
     else
-        avahi_hashmap_remove(entries_by_key, e->record->key);			
+        avahi_hashmap_remove(entries_by_key, e->record->key);            
 
     /* Remove from associated group */
     if (e->group)
@@ -122,7 +161,7 @@ void avahi_entry_group_free(AvahiServer *s, AvahiSEntryGroup *g) {
         avahi_time_event_free(g->proto.mdns.register_time_event);
     
     if (g->type == AVAHI_GROUP_MDNS)
-        AVAHI_LLIST_REMOVE(AvahiSEntryGroup, groups, s->mdns.groups, g);	
+        AVAHI_LLIST_REMOVE(AvahiSEntryGroup, groups, s->mdns.groups, g);    
     else 
         AVAHI_LLIST_REMOVE(AvahiSEntryGroup, groups, s->llmnr.groups, g);
 
@@ -170,10 +209,10 @@ static int check_record_conflict(AvahiServer *s, AvahiIfIndex interface, AvahiPr
 
     for (e = avahi_hashmap_lookup(proto == AVAHI_MDNS ? s->mdns.entries_by_key : s->llmnr.entries_by_key, r->key); e; e = e->by_key_next) {
 
-		if(proto == AVAHI_MDNS)
-			assert(e->type == AVAHI_ENTRY_MDNS);
-		else
-			assert(e->type == AVAHI_ENTRY_LLMNR);
+        if(proto == AVAHI_MDNS)
+            assert(e->type == AVAHI_ENTRY_MDNS);
+        else
+            assert(e->type == AVAHI_ENTRY_LLMNR);
 
         if (e->dead)
             continue;
@@ -203,6 +242,7 @@ static int check_record_conflict(AvahiServer *s, AvahiIfIndex interface, AvahiPr
 }
 
 static AvahiEntry *server_add_llmnr_internal(
+<<<<<<< HEAD:avahi-core/entry.c
 	AvahiServer *s,
 	AvahiSEntryGroup *g,
 	AvahiIfIndex interface,
@@ -215,38 +255,79 @@ static AvahiEntry *server_add_llmnr_internal(
 	assert(s);
 	assert(r);
 
+<<<<<<< HEAD:avahi-core/entry.c
+=======
+	/* Type of the group should be UNSET/LLMNR */
+	AVAHI_CHECK_VALIDITY_RETURN_NULL(s, 
+									(!g) || 
+									(g->type == AVAHI_GROUP_UNSET) || 
+									(g->type == AVAHI_GROUP_LLMNR, AVAHI_ERR_INVALID_GROUP));
+
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
 	/* Flags should be LLMNR flags only */
 	AVAHI_CHECK_VALIDITY_RETURN_NULL(s, AVAHI_FLAGS_VALID(
-                                                        flags,
-                                                        AVAHI_PUBLISH_UNIQUE|
-                                                        AVAHI_PUBLISH_ALLOW_MULTIPLE|
-                                                        AVAHI_PUBLISH_UPDATE|
-                                                        AVAHI_PUBLISH_NO_VERIFY|
-                                                        AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
+									flags,
+=======
+    AvahiServer *s,
+    AvahiSEntryGroup *g,
+    AvahiIfIndex interface,
+    AvahiProtocol protocol,
+    AvahiPublishFlags flags,
+    AvahiRecord *r ) {
 
-	/* Publishing of only A/AAAA/PTR records is supported using LLMNR */
-	AVAHI_CHECK_VALIDITY_RETURN_NULL(s,
+    AvahiEntry *e;
+
+    assert(s);
+    assert(r);
+
+    /* Type of the group should be UNSET/LLMNR */
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s, 
+                                    (!g) || 
+                                    (g->type == AVAHI_GROUP_UNSET) || 
+                                    (g->type == AVAHI_GROUP_LLMNR, AVAHI_ERR_INVALID_GROUP));
+
+    /* Flags should be LLMNR flags only */
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s, AVAHI_FLAGS_VALID(
+                                    flags,
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+                                    AVAHI_PUBLISH_UNIQUE|
+                                    AVAHI_PUBLISH_ALLOW_MULTIPLE|
+                                    AVAHI_PUBLISH_UPDATE|
+                                    AVAHI_PUBLISH_NO_VERIFY|
+                                    AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
+
+    /* Publishing of only A/AAAA/PTR records is supported using LLMNR */
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s,
                                     (r->key->type == AVAHI_DNS_TYPE_A) ||
                                     (r->key->type == AVAHI_DNS_TYPE_AAAA) ||
                                     (r->key->type == AVAHI_DNS_TYPE_PTR), AVAHI_ERR_INVALID_DNS_TYPE);
 
-	AVAHI_CHECK_VALIDITY_RETURN_NULL(s,
-                                    !g ||
-                                    (g->state != AVAHI_ENTRY_GROUP_LLMNR_ESTABLISHED && g->state != 
-                                    AVAHI_ENTRY_GROUP_LLMNR_VERIFYING) ||
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s,
+                                    (!g) ||
+                                    (g->state != AVAHI_ENTRY_GROUP_LLMNR_ESTABLISHED && 
+                                    (g->state != AVAHI_ENTRY_GROUP_LLMNR_VERIFYING)) ||
                                     (flags & AVAHI_PUBLISH_UPDATE), AVAHI_ERR_BAD_STATE);
 
-	/* Copy Copy Copy. */	
-	if (flags & AVAHI_PUBLISH_UPDATE) {
-		AvahiRecord *old_record;
-		int is_first = 1;
+    /* Copy Copy Copy. */    
+    if (flags & AVAHI_PUBLISH_UPDATE) {
+        AvahiRecord *old_record;
+        int is_first = 1;
         
+<<<<<<< HEAD:avahi-core/entry.c
+<<<<<<< HEAD:avahi-core/entry.c
+=======
+		/* type can't be _UNSET*/
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
 		AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !g || g->type == AVAHI_GROUP_LLMNR, AVAHI_ERR_INVALID_GROUP);
+=======
+        /* type can't be _UNSET*/
+        AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !g || g->type == AVAHI_GROUP_LLMNR, AVAHI_ERR_INVALID_GROUP);
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
 
         /* Find the first matching entry */
         for (e = avahi_hashmap_lookup(s->llmnr.entries_by_key, r->key); e; e = e->by_key_next) {
 
-			assert(e->type == AVAHI_ENTRY_LLMNR);
+            assert(e->type == AVAHI_ENTRY_LLMNR);
             if (!e->dead && e->group == g && e->interface == interface && e->protocol == protocol)
                 break;
 
@@ -265,7 +346,7 @@ static AvahiEntry *server_add_llmnr_internal(
 
         /* Reverify changes, if needed */
         if (!avahi_record_equal_no_ttl(old_record, r) && (!g || g->state != AVAHI_ENTRY_GROUP_LLMNR_UNCOMMITED))
-	        /* Reverify our updated entry */
+            /* Reverify our updated entry */
             avahi_reverify_entry(s, e);
 
         /* If we were the first entry in the list, we need to update the key */
@@ -276,23 +357,31 @@ static AvahiEntry *server_add_llmnr_internal(
 
     } else {
         AvahiEntry *t;
+<<<<<<< HEAD:avahi-core/entry.c
+<<<<<<< HEAD:avahi-core/entry.c
 		AVAHI_CHECK_VALIDITY_RETURN_NULL(s, 
 										!g || 
 										g->type == AVAHI_GROUP_UNSET || 
 										g->type == AVAHI_GROUP_LLMNR, AVAHI_ERR_INVALID_GROUP);
 
-		if (g && g->type == AVAHI_GROUP_UNSET) {
-
-			g->proto.llmnr.n_verifying = 0;
-			g->proto.llmnr.n_entries = 0;
-			g->type = AVAHI_GROUP_LLMNR;
+=======
 	
-		    AVAHI_LLIST_HEAD_INIT(AvahiEntry, g->entries);
-		    AVAHI_LLIST_PREPEND(AvahiSEntryGroup, groups, s->llmnr.groups, g);   
-		}
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
+		if (g && g->type == AVAHI_GROUP_UNSET) {
+=======
+    
+        if (g && g->type == AVAHI_GROUP_UNSET) {
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+
+            g->proto.llmnr.n_verifying = 0;
+            g->type = AVAHI_GROUP_LLMNR;
+    
+            AVAHI_LLIST_HEAD_INIT(AvahiEntry, g->entries);
+            AVAHI_LLIST_PREPEND(AvahiSEntryGroup, groups, s->llmnr.groups, g);   
+        }
 
         /* Check for the conflict */
-	     if (check_record_conflict(s, interface, protocol, r, flags, AVAHI_LLMNR) < 0) {
+         if (check_record_conflict(s, interface, protocol, r, flags, AVAHI_LLMNR) < 0) {
             avahi_server_set_errno(s, AVAHI_ERR_COLLISION);
             return NULL;
         }
@@ -309,26 +398,26 @@ static AvahiEntry *server_add_llmnr_internal(
         e->protocol = protocol;
         e->flags = flags;
         e->dead = 0;
-	   
-		e->type = AVAHI_ENTRY_LLMNR;
+       
+        e->type = AVAHI_ENTRY_LLMNR;
         AVAHI_LLIST_HEAD_INIT(AvahiLLMNREntryVerify, e->proto.llmnr.verifiers);
         
         AVAHI_LLIST_PREPEND(AvahiEntry, entries, s->llmnr.entries, e);
 
-	    /* Insert into hash table indexed by name */
-		t = avahi_hashmap_lookup(s->llmnr.entries_by_key, r->key);
+        /* Insert into hash table indexed by name */
+        t = avahi_hashmap_lookup(s->llmnr.entries_by_key, r->key);
         AVAHI_LLIST_PREPEND(AvahiEntry, by_key, t, e);
         avahi_hashmap_replace(s->llmnr.entries_by_key, e->record->key, t);
 
         /* Insert into group list */
         if (g)
             AVAHI_LLIST_PREPEND(AvahiEntry, by_group, g->entries, e);
-		else
-			/* Verify now if it doesn't belong to any group otherwise entry will be verified
-			when group will be commited */
-			avahi_verify_entry(s, e); 
-	  }	
-/*	avahi_log_info("LLMNR Entry Added in server. : %s.%d.%d.%d.%d", e->record->key->name, e->record->key->clazz, e->record->key->type, e->interface, e->protocol );*/
+        else
+            /* Verify now if it doesn't belong to any group otherwise entry will be verified
+            when group will be commited */
+            avahi_verify_entry(s, e); 
+      }    
+
     return e;
 }
 static AvahiEntry * server_add_internal(
@@ -373,19 +462,39 @@ static AvahiEntry * server_add_internal(
                                      (r->key->type != AVAHI_DNS_TYPE_IXFR) &&
                                      (r->key->type != AVAHI_DNS_TYPE_AXFR), AVAHI_ERR_INVALID_DNS_TYPE);
 
+<<<<<<< HEAD:avahi-core/entry.c
+<<<<<<< HEAD:avahi-core/entry.c
 	if (!g || 
 		g->type == AVAHI_GROUP_UNSET || 
+<<<<<<< HEAD:avahi-core/entry.c
 		(g && !(flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA))) )
 	    transport_flags_from_domain(s, &flags, r->key->name);
+=======
+		(g && !(flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA))) ) 
+	    transport_flags_from_domain(s, &flags, r->key->name, 1);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
+=======
+	/*if (!g || 
+		g->type == AVAHI_GROUP_UNSET ||
+		(g && !(flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA))) ) 
+		It's good to perform it, in any case. Above condition doesn't make any sense. :-/ */
+=======
+    /*if (!g || 
+        g->type == AVAHI_GROUP_UNSET ||
+        (g && !(flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA))) ) 
+        It's good to perform it, in any case. Above condition doesn't make any sense. :-/ */
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+    transport_flags_from_domain(s, &flags, r->key->name, 1);
+>>>>>>> 33ed9eb... squash_2:avahi-core/entry.c
 
     AVAHI_CHECK_VALIDITY_RETURN_NULL(s, (flags & AVAHI_PUBLISH_USE_MULTICAST) || (flags & AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_NOT_SUPPORTED);
 
-	AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !s->config.disable_publishing, AVAHI_ERR_NOT_PERMITTED);
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !s->config.disable_publishing, AVAHI_ERR_NOT_PERMITTED);
 
-	if (flags & AVAHI_PUBLISH_USE_LLMNR)
-		return server_add_llmnr_internal(s, g, interface, protocol, flags, r);
+    if (flags & AVAHI_PUBLISH_USE_LLMNR)
+        return server_add_llmnr_internal(s, g, interface, protocol, flags, r);
 
-	AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !(flags & AVAHI_PUBLISH_NO_VERIFY), AVAHI_ERR_INVALID_FLAGS);
+    AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !(flags & AVAHI_PUBLISH_NO_VERIFY), AVAHI_ERR_INVALID_FLAGS);
     AVAHI_CHECK_VALIDITY_RETURN_NULL(s,
                                      !g ||
                                      (g->state != AVAHI_ENTRY_GROUP_ESTABLISHED && g->state != AVAHI_ENTRY_GROUP_REGISTERING) ||
@@ -395,13 +504,13 @@ static AvahiEntry * server_add_internal(
         AvahiRecord *old_record;
         int is_first = 1;
 
-		AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !g || g->type == AVAHI_GROUP_MDNS, AVAHI_ERR_INVALID_GROUP); 
+        AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !g || g->type == AVAHI_GROUP_MDNS, AVAHI_ERR_INVALID_GROUP); 
 
        /* Update an existing record */
        /* Find the first matching entry */
         for (e = avahi_hashmap_lookup(s->mdns.entries_by_key, r->key); e; e = e->by_key_next) {
 
-			assert(e->type == AVAHI_ENTRY_MDNS);
+            assert(e->type == AVAHI_ENTRY_MDNS);
             if (!e->dead && e->group == g && e->interface == interface && e->protocol == protocol)
                 break;
 
@@ -439,23 +548,23 @@ static AvahiEntry * server_add_internal(
     } else {
         AvahiEntry *t;
 
-		AVAHI_CHECK_VALIDITY_RETURN_NULL(s, 
-										!g || 
-										g->type == AVAHI_GROUP_UNSET || 
-										g->type == AVAHI_GROUP_MDNS, AVAHI_ERR_INVALID_GROUP);
+        AVAHI_CHECK_VALIDITY_RETURN_NULL(s, 
+                                        !g || 
+                                        g->type == AVAHI_GROUP_UNSET || 
+                                        g->type == AVAHI_GROUP_MDNS, AVAHI_ERR_INVALID_GROUP);
 
-		if (g && g->type == AVAHI_GROUP_UNSET) {
+        if (g && g->type == AVAHI_GROUP_UNSET) {
 
-			g->proto.mdns.n_probing = 0;
-		    g->proto.mdns.n_register_try = 0;
-		    g->proto.mdns.register_time_event = NULL;
-		    g->proto.mdns.register_time.tv_sec = 0;
-		    g->proto.mdns.register_time.tv_usec = 0;
-			g->type = AVAHI_GROUP_MDNS;
+            g->proto.mdns.n_probing = 0;
+            g->proto.mdns.n_register_try = 0;
+            g->proto.mdns.register_time_event = NULL;
+            g->proto.mdns.register_time.tv_sec = 0;
+            g->proto.mdns.register_time.tv_usec = 0;
+            g->type = AVAHI_GROUP_MDNS;
 
-		    AVAHI_LLIST_HEAD_INIT(AvahiEntry, g->entries);
-		    AVAHI_LLIST_PREPEND(AvahiSEntryGroup, groups, s->mdns.groups, g);   
-		}
+            AVAHI_LLIST_HEAD_INIT(AvahiEntry, g->entries);
+            AVAHI_LLIST_PREPEND(AvahiSEntryGroup, groups, s->mdns.groups, g);   
+        }
         /* Add a new record */
     
         if (check_record_conflict(s, interface, protocol, r, flags, AVAHI_MDNS) < 0) {
@@ -475,7 +584,7 @@ static AvahiEntry * server_add_internal(
         e->protocol = protocol;
         e->flags = flags;
         e->dead = 0;
-		e->type = AVAHI_ENTRY_MDNS;
+        e->type = AVAHI_ENTRY_MDNS;
         
         AVAHI_LLIST_HEAD_INIT(AvahiAnnouncer, e->proto.mdns.announcers);
         
@@ -526,10 +635,10 @@ const AvahiRecord *avahi_server_iterate(AvahiServer *s, AvahiSEntryGroup *g, voi
     return avahi_record_ref((*e)->record);
 }
 
-static void zone_dump(AvahiServer *s, AvahiDumpCallback callback, void* userdata, int proto) {
-	AvahiEntry *e;
+static void zone_dump(AvahiServer *s, AvahiDumpCallback callback, void* userdata, AvahiPublishProtocol proto) {
+    AvahiEntry *e;
 
-    for (e = !proto ? s->mdns.entries : s->llmnr.entries; e; e = e->entries_next) {
+    for (e = ((proto == AVAHI_MDNS) ? (s->mdns.entries) : (s->llmnr.entries)); e; e = e->entries_next) {
         char *t;
         char ln[256];
 
@@ -537,9 +646,9 @@ static void zone_dump(AvahiServer *s, AvahiDumpCallback callback, void* userdata
             continue;
         
         if (!(t = avahi_record_to_string(e->record))){
-			avahi_server_set_errno(s, AVAHI_ERR_NO_MEMORY);
-			return;
-		}
+            avahi_server_set_errno(s, AVAHI_ERR_NO_MEMORY);
+            return;
+        }
         
         snprintf(ln, sizeof(ln), "%s ; iface=%i proto=%i", t, e->interface, e->protocol);
         avahi_free(t);
@@ -553,12 +662,12 @@ int avahi_server_dump(AvahiServer *s, AvahiDumpCallback callback, void* userdata
     assert(callback);
 
     callback(";;; mDNS ZONE DUMP FOLLOWS ;;;", userdata);
-	zone_dump(s, callback, userdata, 0);
+    zone_dump(s, callback, userdata, AVAHI_MDNS);
     avahi_dump_caches(s->monitor, callback, userdata);
 
-	callback(";;; LLMNR ZONE DUMP FOLLOWS ;;;", userdata);
-	zone_dump(s, callback, userdata, 1);
-	avahi_llmnr_cache_dump(s->llmnr.llmnr_lookup_engine, callback, userdata);
+    callback(";;; LLMNR ZONE DUMP FOLLOWS ;;;", userdata);
+    zone_dump(s, callback, userdata, AVAHI_LLMNR);
+    avahi_llmnr_cache_dump(s->llmnr.llmnr_lookup_engine, callback, userdata);
 
     if (s->wide_area.wide_area_lookup_engine)
         avahi_wide_area_cache_dump(s->wide_area.wide_area_lookup_engine, callback, userdata);
@@ -581,12 +690,14 @@ static AvahiEntry *server_add_ptr_internal(
     
     assert(s);
     assert(dest);
-	assert(name || (flags & AVAHI_PUBLISH_USE_MULTICAST || flags & AVAHI_PUBLISH_USE_LLMNR || flags & AVAHI_PUBLISH_USE_WIDE_AREA));
+
+/*    assert(name || (flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA));*/
 
     AVAHI_CHECK_VALIDITY_RETURN_NULL(s, !name || avahi_is_valid_domain_name(name), AVAHI_ERR_INVALID_HOST_NAME);
     AVAHI_CHECK_VALIDITY_RETURN_NULL(s, avahi_is_valid_domain_name(dest), AVAHI_ERR_INVALID_HOST_NAME);
 
     if (!name)
+        /* If _LLMNR flag is mentioned, this entry would be published using LLMNR otherwise mDNS (though that depends on system FQDN) */
         name = s->host_name_fqdn;
 
     if (!(r = avahi_record_new_full(name, AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_PTR, ttl))) {
@@ -614,7 +725,7 @@ int avahi_server_add_ptr(
     AvahiEntry *e;
 
     assert(s);
-		
+        
     if (!(e = server_add_ptr_internal(s, g, interface, protocol, flags, ttl, name, dest)))
         return avahi_server_errno(s);
 
@@ -622,24 +733,24 @@ int avahi_server_add_ptr(
 }
 
 static int server_add_address_internal (
-	AvahiServer *s,
-	AvahiSEntryGroup *g,
-	AvahiIfIndex interface,
-	AvahiProtocol protocol,
-	AvahiPublishFlags flags,
-	const char *name,
-	AvahiAddress *a,
-	uint32_t ttl) {
+    AvahiServer *s,
+    AvahiSEntryGroup *g,
+    AvahiIfIndex interface,
+    AvahiProtocol protocol,
+    AvahiPublishFlags flags,
+    const char *name,
+    AvahiAddress *a,
+    uint32_t ttl) {
 
-	AvahiRecord *r;
-	int ret = AVAHI_OK;
- 	AvahiEntry *reverse = NULL, *entry = NULL;
+    AvahiRecord *r;
+    int ret = AVAHI_OK;
+     AvahiEntry *reverse = NULL, *entry = NULL;
 
-	assert(s);
-	assert(a);
-	assert(name);
+    assert(s);
+    assert(a);
+    assert(name);
 
-	/* Create the A/AAAA record */
+    /* Create the A/AAAA record */
     if (a->proto == AVAHI_PROTO_INET) {
 
         if (!(r = avahi_record_new_full(name, AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_A, ttl))) {
@@ -703,10 +814,11 @@ int avahi_server_add_address(
     AvahiAddress *a) {
 
     char n[AVAHI_DOMAIN_NAME_MAX];
+    int ret_fqdn, null_name = 0;
 
     assert(s);
     assert(a);
-	assert(name || (flags & AVAHI_PUBLISH_USE_MULTICAST || flags & AVAHI_PUBLISH_USE_LLMNR || flags &  AVAHI_PUBLISH_USE_WIDE_AREA));
+/*    assert(name || (flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR | AVAHI_PUBLISH_USE_WIDE_AREA));*/
 
     AVAHI_CHECK_VALIDITY(s, AVAHI_IF_VALID(interface), AVAHI_ERR_INVALID_INTERFACE);
     AVAHI_CHECK_VALIDITY(s, AVAHI_PROTO_VALID(protocol) && AVAHI_PROTO_VALID(a->proto), AVAHI_ERR_INVALID_PROTOCOL);
@@ -714,50 +826,88 @@ int avahi_server_add_address(
                                               AVAHI_PUBLISH_NO_REVERSE|
                                               AVAHI_PUBLISH_NO_ANNOUNCE|
                                               AVAHI_PUBLISH_NO_PROBE|
-											  AVAHI_PUBLISH_NO_VERIFY|
+                                              AVAHI_PUBLISH_NO_VERIFY|
                                               AVAHI_PUBLISH_UPDATE|
                                               AVAHI_PUBLISH_USE_WIDE_AREA|
                                               AVAHI_PUBLISH_USE_MULTICAST|
-											  AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
+                                              AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_INVALID_FLAGS);
+
+    AVAHI_CHECK_VALIDITY(s,
+                        !name ||
+                        ((flags & AVAHI_PUBLISH_USE_MULTICAST) ? (avahi_is_valid_fqdn(name)) : (avahi_is_valid_domain_name(name))),
+                        AVAHI_ERR_INVALID_HOST_NAME);
 
     /* Prepare the host name */
     if (!name) {
-		assert(((flags & AVAHI_PUBLISH_USE_LLMNR) && !(flags & AVAHI_PUBLISH_USE_MULTICAST)) ||
-			  (!(flags & AVAHI_PUBLISH_USE_LLMNR) || (flags & AVAHI_PUBLISH_USE_MULTICAST)) );
-
-		name = s->host_name_fqdn;
-
-		if (flags & AVAHI_PUBLISH_USE_MULTICAST) {
-		/* TODO : If default domain value has been changed by client? i.e fqdn != <hostname>.local?*/
-			return server_add_address_internal(s, g, interface, protocol, flags, name, a, AVAHI_DEFAULT_TTL_HOST_NAME);
+        name = s->host_name_fqdn;
+        null_name = 1;
+    } else {
+        AVAHI_ASSERT_TRUE(avahi_normalize_name(name, n, sizeof(n)));
+        name = n;
+    }
+<<<<<<< HEAD:avahi-core/entry.c
 	
-		} else /*AVAHI_PUBLISH_USE_LLMNR*/ {
-			char *hostname = s->host_name;
-			int ret_hostname, ret_fqdn;
+	/* transport flags */
+	transport_flags_from_domain(s, &flags, name, 1);
+	AVAHI_CHECK_VALIDITY(s, (flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR)), AVAHI_ERR_NOT_SUPPORTED);
 
-			ret_hostname = server_add_address_internal(s, g, interface, protocol, flags, hostname, a, AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
-
-			if (ret_hostname == AVAHI_OK)
-				ret_fqdn = server_add_address_internal(s, g, interface, protocol, flags |= AVAHI_PUBLISH_NO_REVERSE, name, a, AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
-
-			else 
-				return ret_hostname;
-			/*TODO*/
-			return ret_fqdn;
-		}
-
+<<<<<<< HEAD:avahi-core/entry.c
 	} else {
+<<<<<<< HEAD:avahi-core/entry.c
 
+=======
+		/* Could be a single label hostname or valid FQDN */
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
 		AVAHI_CHECK_VALIDITY(s, flags & AVAHI_PUBLISH_USE_MULTICAST ? avahi_is_valid_fqdn(name) : avahi_is_valid_domain_name(name), AVAHI_ERR_INVALID_HOST_NAME);
 
 		AVAHI_ASSERT_TRUE(avahi_normalize_name(name, n, sizeof(n)));
         name = n;
 	
+<<<<<<< HEAD:avahi-core/entry.c
 		transport_flags_from_domain(s, &flags, name);
+=======
+		transport_flags_from_domain(s, &flags, name, 1);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
 		AVAHI_CHECK_VALIDITY(s, (flags & AVAHI_PUBLISH_USE_MULTICAST) || (flags & AVAHI_PUBLISH_USE_LLMNR), AVAHI_ERR_NOT_SUPPORTED);
+=======
+	/* No matter mDNS or LLMNR */
+	if (flags & AVAHI_PUBLISH_USE_MULTICAST)
+		ret_fqdn = server_add_address_internal(s, g, interface, protocol, flags, name, a, AVAHI_DEFAULT_TTL_HOST_NAME);
+	else 
+		ret_fqdn = server_add_address_internal(s, g, 
+=======
+    
+    /* transport flags */
+    transport_flags_from_domain(s, &flags, name, 1);
+    AVAHI_CHECK_VALIDITY(s, (flags & (AVAHI_PUBLISH_USE_MULTICAST | AVAHI_PUBLISH_USE_LLMNR)), AVAHI_ERR_NOT_SUPPORTED);
 
-		return server_add_address_internal(s, g, interface, protocol, flags, name, a, flags & AVAHI_PUBLISH_USE_MULTICAST ? AVAHI_DEFAULT_TTL_HOST_NAME : AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
-	}
+    /* No matter mDNS or LLMNR */
+    if (flags & AVAHI_PUBLISH_USE_MULTICAST)
+        ret_fqdn = server_add_address_internal(s, g, interface, protocol, flags, name, a, AVAHI_DEFAULT_TTL_HOST_NAME);
+    else 
+        ret_fqdn = server_add_address_internal(s, g, 
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+                                               interface, 
+                                               protocol, 
+                                               (null_name == 1) ? (flags |= AVAHI_PUBLISH_NO_REVERSE) : (flags), 
+                                               name, a, 
+                                               AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
+<<<<<<< HEAD:avahi-core/entry.c
+	
+	/* If previous entries have been added successfully && name parameter was NULL && we are using LLMNR, 
+	publish hostname -> A/AAAA entry and PTR entry*/
+	if (ret_fqdn == AVAHI_OK && null_name == 1 && flags & AVAHI_PUBLISH_USE_LLMNR )
+		return server_add_address_internal(s, g, interface, protocol, flags & ~ AVAHI_PUBLISH_NO_REVERSE, s->host_name, a, AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
+>>>>>>> 33ed9eb... squash_2:avahi-core/entry.c
+=======
+    
+    /* If previous entries have been added successfully && name parameter was NULL && we are using LLMNR, 
+    publish hostname -> A/AAAA entry and PTR entry*/
+    if (ret_fqdn == AVAHI_OK && null_name == 1 && flags & AVAHI_PUBLISH_USE_LLMNR )
+        return server_add_address_internal(s, g, interface, protocol, flags & ~ AVAHI_PUBLISH_NO_REVERSE, s->host_name, a, AVAHI_DEFAULT_LLMNR_TTL_HOST_NAME);
+>>>>>>> 933da1a... Indentation Issues 2:avahi-core/entry.c
+
+    return ret_fqdn;
 }
 
 static AvahiEntry *server_add_txt_strlst_nocopy(
@@ -845,9 +995,13 @@ static int server_add_service_strlst_nocopy(
     if (!host)
         host = s->host_name_fqdn;
 
+<<<<<<< HEAD:avahi-core/entry.c
 /*    transport_flags_from_domain(s, &flags, domain);*/
+=======
+    transport_flags_from_domain(s, &flags, domain, 0);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
 
-	AVAHI_CHECK_VALIDITY_SET_RET_GOTO_FAIL(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
+    AVAHI_CHECK_VALIDITY_SET_RET_GOTO_FAIL(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
     
     if (!(h = avahi_normalize_name_strdup(host))) {
         ret = avahi_server_set_errno(s, AVAHI_ERR_NO_MEMORY);
@@ -1000,7 +1154,11 @@ static int server_update_service_txt_strlst_nocopy(
     if (!domain)
         domain = s->domain_name;
 
+<<<<<<< HEAD:avahi-core/entry.c
 /*    transport_flags_from_domain(s, &flags, domain);*/
+=======
+    transport_flags_from_domain(s, &flags, domain, 0);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
     AVAHI_CHECK_VALIDITY_SET_RET_GOTO_FAIL(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
 
     if ((ret = avahi_service_name_join(svc_name, sizeof(svc_name), name, type, domain)) < 0) {
@@ -1091,7 +1249,11 @@ int avahi_server_add_service_subtype(
     if (!domain)
         domain = s->domain_name;
 
+<<<<<<< HEAD:avahi-core/entry.c
 /*    transport_flags_from_domain(s, &flags, domain);*/
+=======
+    transport_flags_from_domain(s, &flags, domain, 0);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
     AVAHI_CHECK_VALIDITY_SET_RET_GOTO_FAIL(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
 
     if ((ret = avahi_service_name_join(svc_name, sizeof(svc_name), name, type, domain)) < 0 ||
@@ -1159,7 +1321,11 @@ static AvahiEntry *server_add_dns_server_name(
     if (!domain)
         domain = s->domain_name;
 
+<<<<<<< HEAD:avahi-core/entry.c
 /*    transport_flags_from_domain(s, &flags, domain);*/
+=======
+    transport_flags_from_domain(s, &flags, domain, 0);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
     AVAHI_CHECK_VALIDITY_RETURN_NULL(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
 
     if (!(n = avahi_normalize_name_strdup(name))) {
@@ -1216,7 +1382,11 @@ int avahi_server_add_dns_server_address(
     if (!domain)
         domain = s->domain_name;
 
+<<<<<<< HEAD:avahi-core/entry.c
 /*    transport_flags_from_domain(s, &flags, domain);*/
+=======
+    transport_flags_from_domain(s, &flags, domain, 0);
+>>>>>>> cc62833... squash 1:avahi-core/entry.c
     AVAHI_CHECK_VALIDITY(s, flags & AVAHI_PUBLISH_USE_MULTICAST, AVAHI_ERR_NOT_SUPPORTED);
     
     if (address->proto == AVAHI_PROTO_INET) {
@@ -1251,8 +1421,8 @@ int avahi_server_add_dns_server_address(
 
 void avahi_s_entry_group_change_state(AvahiSEntryGroup *g, AvahiEntryGroupState state) {
     assert(g);
-	assert(g->type != AVAHI_GROUP_UNSET);
-	
+    assert(g->type != AVAHI_GROUP_UNSET);
+    
     if (g->state == state)
         return;
 
@@ -1279,10 +1449,10 @@ void avahi_s_entry_group_change_state(AvahiSEntryGroup *g, AvahiEntryGroupState 
         
         gettimeofday(&g->proto.mdns.established_at, NULL);
     
-		g->state = state;
+        g->state = state;
     
-	    if (g->callback)
-		    g->callback(g->server, g, state, g->userdata);
+        if (g->callback)
+            g->callback(g->server, g, state, g->userdata);
 }
 
 AvahiSEntryGroup *avahi_s_entry_group_new(AvahiServer *s, AvahiSEntryGroupCallback callback, void* userdata) {
@@ -1300,9 +1470,9 @@ AvahiSEntryGroup *avahi_s_entry_group_new(AvahiServer *s, AvahiSEntryGroupCallba
     g->userdata = userdata;
     g->dead = 0;
     g->state = AVAHI_ENTRY_GROUP_UNCOMMITED;
-	g->type = AVAHI_GROUP_UNSET;
+    g->type = AVAHI_GROUP_UNSET;
     
-	return g;
+    return g;
 }
 
 void avahi_s_entry_group_free(AvahiSEntryGroup *g) {
@@ -1311,50 +1481,50 @@ void avahi_s_entry_group_free(AvahiSEntryGroup *g) {
     assert(g);
     assert(g->server);
 
-	if (g->type == AVAHI_GROUP_UNSET) {
-		avahi_free(g);
-		
-	} else if (g->type == AVAHI_GROUP_MDNS) {
+    if (g->type == AVAHI_GROUP_UNSET) {
+        avahi_free(g);
+        
+    } else if (g->type == AVAHI_GROUP_MDNS) {
 
-	    for (e = g->entries; e; e = e->by_group_next) {
-			assert(e->type == AVAHI_ENTRY_MDNS);
+        for (e = g->entries; e; e = e->by_group_next) {
+            assert(e->type == AVAHI_ENTRY_MDNS);
 
-		    if (!e->dead) {
-    		    avahi_goodbye_entry(g->server, e, 1, 1);
-        		e->dead = 1;
-	        }
-		}
+            if (!e->dead) {
+                avahi_goodbye_entry(g->server, e, 1, 1);
+                e->dead = 1;
+            }
+        }
 
-	    if (g->proto.mdns.register_time_event) {
-		    avahi_time_event_free(g->proto.mdns.register_time_event);
-	        g->proto.mdns.register_time_event = NULL;
-		}
+        if (g->proto.mdns.register_time_event) {
+            avahi_time_event_free(g->proto.mdns.register_time_event);
+            g->proto.mdns.register_time_event = NULL;
+        }
 
-		g->server->mdns.need_group_cleanup = 1;
-		g->server->mdns.need_entry_cleanup = 1;
+        g->server->mdns.need_group_cleanup = 1;
+        g->server->mdns.need_entry_cleanup = 1;
 
-	} else {
+    } else {
 
-		assert (g->type == AVAHI_GROUP_LLMNR);
-		for (e = g->entries; e; e = e->by_group_next) {
-			assert(e->type == AVAHI_ENTRY_LLMNR);
+        assert (g->type == AVAHI_GROUP_LLMNR);
+        for (e = g->entries; e; e = e->by_group_next) {
+            assert(e->type == AVAHI_ENTRY_LLMNR);
 
-		    if (!e->dead) {
-    		    avahi_remove_verifiers(g->server, e);
-        		e->dead = 1;
-	        }
-		}
+            if (!e->dead) {
+                avahi_remove_verifiers(g->server, e);
+                e->dead = 1;
+            }
+        }
 
-		g->server->llmnr.need_entry_cleanup = 1;
-		g->server->llmnr.need_group_cleanup = 1;
-	}
+        g->server->llmnr.need_entry_cleanup = 1;
+        g->server->llmnr.need_group_cleanup = 1;
+    }
 
-	g->dead = 1;
+    g->dead = 1;
 }
 
 static void entry_group_commit_real(AvahiSEntryGroup *g) {
     assert(g);
-	assert(g->type == AVAHI_GROUP_MDNS);
+    assert(g->type == AVAHI_GROUP_MDNS);
 
     gettimeofday(&g->proto.mdns.register_time, NULL);
 
@@ -1370,7 +1540,7 @@ static void entry_group_commit_real(AvahiSEntryGroup *g) {
 static void entry_group_register_time_event_callback(AVAHI_GCC_UNUSED AvahiTimeEvent *e, void* userdata) {
     AvahiSEntryGroup *g = userdata;
     assert(g);
-	assert(g->type == AVAHI_GROUP_MDNS);
+    assert(g->type == AVAHI_GROUP_MDNS);
 
     avahi_time_event_free(g->proto.mdns.register_time_event);
     g->proto.mdns.register_time_event = NULL;
@@ -1385,51 +1555,51 @@ int avahi_s_entry_group_commit(AvahiSEntryGroup *g) {
     assert(g);
     assert(!g->dead);
 
-	if (g->type == AVAHI_GROUP_UNSET)
-		/* Group is empty */
-		return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);
+    if (g->type == AVAHI_GROUP_UNSET)
+        /* Group is empty */
+        return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);
 
-	if (g->type == AVAHI_GROUP_MDNS) {
-	    if (g->state != AVAHI_ENTRY_GROUP_UNCOMMITED && g->state != AVAHI_ENTRY_GROUP_COLLISION)
-	        return avahi_server_set_errno(g->server, AVAHI_ERR_BAD_STATE);
+    if (g->type == AVAHI_GROUP_MDNS) {
+        if (g->state != AVAHI_ENTRY_GROUP_UNCOMMITED && g->state != AVAHI_ENTRY_GROUP_COLLISION)
+            return avahi_server_set_errno(g->server, AVAHI_ERR_BAD_STATE);
 
-/*	    if (avahi_s_entry_group_is_empty(g))
-    		return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);*/
+/*        if (avahi_s_entry_group_is_empty(g))
+            return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);*/
 
-	    g->proto.mdns.n_register_try++;
+        g->proto.mdns.n_register_try++;
 
-	    avahi_timeval_add(&g->proto.mdns.register_time,
-	                      1000*(g->proto.mdns.n_register_try >= AVAHI_RR_RATE_LIMIT_COUNT ?
-	                            AVAHI_RR_HOLDOFF_MSEC_RATE_LIMIT :
-	                            AVAHI_RR_HOLDOFF_MSEC));
+        avahi_timeval_add(&g->proto.mdns.register_time,
+                          1000*(g->proto.mdns.n_register_try >= AVAHI_RR_RATE_LIMIT_COUNT ?
+                                AVAHI_RR_HOLDOFF_MSEC_RATE_LIMIT :
+                                AVAHI_RR_HOLDOFF_MSEC));
 
-	    gettimeofday(&now, NULL);
+        gettimeofday(&now, NULL);
 
-		if (avahi_timeval_compare(&g->proto.mdns.register_time, &now) <= 0) {
+        if (avahi_timeval_compare(&g->proto.mdns.register_time, &now) <= 0) {
 
-	        /* Holdoff time passed, so let's start probing */
-	        entry_group_commit_real(g);
-		} else {
+            /* Holdoff time passed, so let's start probing */
+            entry_group_commit_real(g);
+        } else {
 
-    		 /* Holdoff time has not yet passed, so let's wait */
-	        assert(!g->proto.mdns.register_time_event);
-	        g->proto.mdns.register_time_event = avahi_time_event_new(g->server->time_event_queue, &g->proto.mdns.register_time, entry_group_register_time_event_callback, g);
+             /* Holdoff time has not yet passed, so let's wait */
+            assert(!g->proto.mdns.register_time_event);
+            g->proto.mdns.register_time_event = avahi_time_event_new(g->server->time_event_queue, &g->proto.mdns.register_time, entry_group_register_time_event_callback, g);
         
-		    avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_REGISTERING);
-		}
+            avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_REGISTERING);
+        }
 
-	} else {
-		assert(g->type == AVAHI_GROUP_LLMNR);
+    } else {
+        assert(g->type == AVAHI_GROUP_LLMNR);
 
-	    if (g->state != AVAHI_ENTRY_GROUP_LLMNR_UNCOMMITED && g->state != AVAHI_ENTRY_GROUP_LLMNR_COLLISION)
-	        return avahi_server_set_errno(g->server, AVAHI_ERR_BAD_STATE);
+        if (g->state != AVAHI_ENTRY_GROUP_LLMNR_UNCOMMITED && g->state != AVAHI_ENTRY_GROUP_LLMNR_COLLISION)
+            return avahi_server_set_errno(g->server, AVAHI_ERR_BAD_STATE);
 
-/*	    if (avahi_s_entry_group_is_empty(g))
-    		return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);*/
+/*        if (avahi_s_entry_group_is_empty(g))
+            return avahi_server_set_errno(g->server, AVAHI_ERR_IS_EMPTY);*/
 
-		avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_LLMNR_VERIFYING);
-		avahi_verify_group(g->server, g);
-	}
+        avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_LLMNR_VERIFYING);
+        avahi_verify_group(g->server, g);
+    }
 
     return AVAHI_OK;
 }
@@ -1437,53 +1607,56 @@ int avahi_s_entry_group_commit(AvahiSEntryGroup *g) {
 void avahi_s_entry_group_reset(AvahiSEntryGroup *g) {
     AvahiEntry *e;
     assert(g);
-    
-	if (g->type == AVAHI_GROUP_MDNS) {
 
-	    for (e = g->entries; e; e = e->by_group_next) {
-			assert(e->type == AVAHI_ENTRY_MDNS);
-	        if (!e->dead) {
+    if (g->type == AVAHI_GROUP_UNSET)
+        return;
+    
+    if (g->type == AVAHI_GROUP_MDNS) {
+
+        for (e = g->entries; e; e = e->by_group_next) {
+            assert(e->type == AVAHI_ENTRY_MDNS);
+            if (!e->dead) {
             avahi_goodbye_entry(g->server, e, 1, 1);
             e->dead = 1;
-		    }
-	    }
-	    g->server->mdns.need_entry_cleanup = 1;
+            }
+        }
+        g->server->mdns.need_entry_cleanup = 1;
 
-		g->proto.mdns.n_probing = 0;
+        g->proto.mdns.n_probing = 0;
 
-		avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_UNCOMMITED);
+        avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_UNCOMMITED);
 
-	} else {
-		assert(g->type == AVAHI_GROUP_LLMNR);
-	
-		for (e = g->entries; e; e = e->by_group_next) {
-			assert(e->type == AVAHI_ENTRY_LLMNR);
-	        if (!e->dead) {
-				avahi_remove_verifiers(g->server, e);
-				e->dead = 1;
-			}
-		}
-	    g->server->llmnr.need_entry_cleanup = 1;
+    } else {
+        assert(g->type == AVAHI_GROUP_LLMNR);
+    
+        for (e = g->entries; e; e = e->by_group_next) {
+            assert(e->type == AVAHI_ENTRY_LLMNR);
+            if (!e->dead) {
+                avahi_remove_verifiers(g->server, e);
+                e->dead = 1;
+            }
+        }
+        g->server->llmnr.need_entry_cleanup = 1;
 
-		g->proto.llmnr.n_verifying = 0;
+        g->proto.llmnr.n_verifying = 0;
 
-		avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_LLMNR_UNCOMMITED);
-	}
+        avahi_s_entry_group_change_state(g, AVAHI_ENTRY_GROUP_LLMNR_UNCOMMITED);
+    }
 }
 
 int avahi_entry_is_commited(AvahiEntry *e) {
     assert(e);
     assert(!e->dead);
 
-	if (e->type == AVAHI_ENTRY_MDNS)
-	    return !e->group ||
-		    e->group->state == AVAHI_ENTRY_GROUP_REGISTERING ||
-    		e->group->state == AVAHI_ENTRY_GROUP_ESTABLISHED;
+    if (e->type == AVAHI_ENTRY_MDNS)
+        return !e->group ||
+            e->group->state == AVAHI_ENTRY_GROUP_REGISTERING ||
+            e->group->state == AVAHI_ENTRY_GROUP_ESTABLISHED;
 
-	else 
-		return (!e->group || 
-			e->group->state == AVAHI_ENTRY_GROUP_LLMNR_VERIFYING ||
-			e->group->state == AVAHI_ENTRY_GROUP_LLMNR_ESTABLISHED );
+    else 
+        return (!e->group || 
+            e->group->state == AVAHI_ENTRY_GROUP_LLMNR_VERIFYING ||
+            e->group->state == AVAHI_ENTRY_GROUP_LLMNR_ESTABLISHED );
 }
 
 AvahiEntryGroupState avahi_s_entry_group_get_state(AvahiSEntryGroup *g) {
@@ -1509,9 +1682,9 @@ int avahi_s_entry_group_is_empty(AvahiSEntryGroup *g) {
     AvahiEntry *e;
     assert(g);
 
-	if (g->type == AVAHI_GROUP_UNSET)
-		/* There has not been any entry added in this group so far. */
-		return 1;
+    if (g->type == AVAHI_GROUP_UNSET)
+        /* There has not been any entry added in this group so far. */
+        return 1;
 
     /* Look for an entry that is not dead */
     for (e = g->entries; e; e = e->by_group_next)

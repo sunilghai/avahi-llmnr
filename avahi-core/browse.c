@@ -352,7 +352,7 @@ static void lookup_llmnr_callback(
 
 	b = l->record_browser;
 
-	if(b->dead)
+	if (b->dead)
 		return;
 
 	lookup_ref(l);
@@ -383,8 +383,20 @@ static void lookup_llmnr_callback(
 		case AVAHI_BROWSER_FAILURE:
 			/* This event states that LLMNR query has been sent three times on specified 
 			interface and protocol and we don't have any records available */
+<<<<<<< HEAD:avahi-core/browse.c
+<<<<<<< HEAD:avahi-core/browse.c
 			/*b->callback(b, interface, protocol, event, NULL, flags, b->userdata);*/
+=======
+			b->callback(b, interface, protocol, event, NULL, flags, b->userdata);
+			lookup_ref(l);
+>>>>>>> cc62833... squash 1:avahi-core/browse.c
 			break;
+=======
+			/*b->callback(b, interface, protocol, event, NULL, flags, b->userdata);
+			lookup_ref(l);*/
+			abort();
+
+>>>>>>> 33ed9eb... squash_2:avahi-core/browse.c
 	}
 	
 	lookup_unref(l);
@@ -515,7 +527,7 @@ static void lookup_drop_cname(AvahiSRBLookup *l, AvahiIfIndex interface, AvahiPr
     AvahiKey *k;
     AvahiSRBLookup *n = NULL;
     AvahiRList *rl;
-	avahi_log_info("C");
+
     assert(r->key->clazz == AVAHI_DNS_CLASS_IN);
     assert(r->key->type == AVAHI_DNS_TYPE_CNAME);
 
